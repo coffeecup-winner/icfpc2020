@@ -11,8 +11,8 @@ fn main() -> io::Result<()> {
     let mut state = State::new();
     for line in file.lines() {
         let stmt = parse_line(line);
-        state.eval(stmt);
+        state.interpret(stmt);
     }
-    println!("galaxy: {:?}", state.get(Var::Named("galaxy".to_string())));
+    println!("galaxy: {:?}", state.exec(Var::Named("galaxy".to_string())));
     Ok(())
 }

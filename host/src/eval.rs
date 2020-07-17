@@ -4,13 +4,15 @@ use crate::syntax::{Stmt, Token, Var};
 
 #[derive(Debug, Default)]
 pub struct State {
-    vars: HashMap<Var, Value>,
+    raw: HashMap<Var, Vec<Token>>,
+    compiled: HashMap<Var, Value>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Value {
     Var(u32),
     Number(i64),
+    Bool(bool),
     List(Vec<Value>), // stored in reverse
     BuiltIn(BuiltIn),
     Func(Vec<Token>),
@@ -24,6 +26,7 @@ impl Value {
             Var(_) => panic!(),
             Number(_) => 0,
             List(_) => 0,
+            Bool(_) => 0,
             BuiltIn(b) => b.arity(),
             Func(_) => panic!(),
             Partial(v, _) => v.arity() - 1,
@@ -48,8 +51,6 @@ pub enum BuiltIn {
     S,     // #18
     C,     // #19
     B,     // #20
-    True,  // #21
-    False, // #22
     Pwr2,  // #23 - ???
     I,     // #24
     Cons,  // #25
@@ -119,19 +120,58 @@ impl State {
         State::default()
     }
 
-    pub fn get(&self, var: Var) -> Option<&Value> {
-        self.vars.get(&var)
+    pub fn exec(&mut self, var: Var) -> Value {
+        let v = self.eval(var).clone();
+        self.eval_value(v)
     }
 
-    pub fn eval(&mut self, stmt: Stmt) {
+    pub fn eval(&mut self, var: Var) -> &Value {
+        println!("{:?}", var);
+        if self.raw.get(&var).is_some() {
+            let code = self.raw.remove(&var).unwrap();
+            // First precompile all dependencies
+            for t in code.iter() {
+                if let Token::Var(v) = t {
+                    if self.raw.get(&Var::Temp(*v)).is_some() {
+                        self.eval(Var::Temp(*v));
+                    }
+                }
+            }
+
+            let v = self.compile(code);
+            self.compiled.insert(var.clone(), v);
+        }
+        self.compiled.get(&var).unwrap()
+    }
+
+    pub fn eval_value(&mut self, val: Value) -> Value {
+        match val {
+            Value::Var(v) => {
+                let v = self.eval(Var::Temp(v)).clone();
+                self.eval_value(v)
+            },
+            Value::Number(_) => val,
+            Value::Bool(_) => val,
+            Value::List(_) => val,
+            Value::BuiltIn(_) => val,
+            Value::Func(_) => val,
+            Value::Partial(_, _) => val,
+        }
+    }
+
+    pub fn interpret(&mut self, stmt: Stmt) {
+        self.raw.insert(stmt.var, stmt.code);
+    }
+
+    fn compile(&self, code: Vec<Token>) -> Value {
         let mut stack: Vec<Value> = vec![];
-        for token in stmt.code.into_iter().rev() {
+        for token in code.into_iter().rev() {
             match token {
                 Token::Var(v) => stack.push(Value::Var(v)),
 
                 Token::Number(n) => stack.push(Value::Number(n)),
-                Token::True => stack.push(Value::BuiltIn(BuiltIn::True)),
-                Token::False => stack.push(Value::BuiltIn(BuiltIn::False)),
+                Token::True => stack.push(Value::Bool(true)),
+                Token::False => stack.push(Value::Bool(false)),
                 Token::Nil => stack.push(Value::List(vec![])),
 
                 Token::Inc => stack.push(Value::BuiltIn(BuiltIn::Inc)),
@@ -194,7 +234,7 @@ impl State {
                     }
                     Value::BuiltIn(b) => {
                         match b.arity() {
-                            0 => panic!("Illegal state"),
+                            0 => panic!("Illegal state: {:?}", b),
                             1 => {
                                 // apply function with arity 1
                                 match b {
@@ -231,6 +271,6 @@ impl State {
                 _ => panic!("{:?}", token),
             }
         }
-        self.vars.insert(stmt.var, stack[0].clone()); // TODO - fix this
+        stack[0].clone()
     }
 }
