@@ -12,7 +12,6 @@ pub struct State {
 pub enum Value {
     Var(u32),
     Number(i64),
-    Bool(bool),
     List(Vec<Value>), // stored in reverse
     BuiltIn(BuiltIn),
     Func(Vec<Token>),
@@ -26,7 +25,6 @@ impl Value {
             Var(_) => panic!(),
             Number(_) => 0,
             List(_) => 0,
-            Bool(_) => 0,
             BuiltIn(b) => b.arity(),
             Func(_) => panic!(),
             Partial(v, _) => v.arity() - 1,
@@ -51,12 +49,13 @@ pub enum BuiltIn {
     S,     // #18
     C,     // #19
     B,     // #20
+    True,  // #21
+    False, // #22
     Pwr2,  // #23 - ???
     I,     // #24
     Cons,  // #25
     Head,  // #26
     Tail,  // #27
-    Nil,   // #28
     IsNil, // #29
     // #30 - ???
     // #31 - ???
@@ -90,14 +89,13 @@ impl BuiltIn {
             S => 3,
             C => 3,
             B => 3,
-            True => 0,
-            False => 0,
+            True => 2,
+            False => 2,
             Pwr2 => 1,
             I => 1,
             Cons => 2, // doesn't exactly match the definition
             Head => 1,
             Tail => 1,
-            Nil => 0, // doesn't exactly match the definition
             IsNil => 1,
             // #30 - ???
             // #31 - ???
@@ -138,7 +136,10 @@ impl State {
                 }
             }
 
+            println!("Compiling {:?}", var);
+            println!("Raw: {:?}", code);
             let v = self.compile(code);
+            println!("Compiled: {:#?}", v);
             self.compiled.insert(var.clone(), v);
         }
         self.compiled.get(&var).unwrap()
@@ -149,9 +150,8 @@ impl State {
             Value::Var(v) => {
                 let v = self.eval(Var::Temp(v)).clone();
                 self.eval_value(v)
-            },
+            }
             Value::Number(_) => val,
-            Value::Bool(_) => val,
             Value::List(_) => val,
             Value::BuiltIn(_) => val,
             Value::Func(_) => val,
@@ -170,8 +170,8 @@ impl State {
                 Token::Var(v) => stack.push(Value::Var(v)),
 
                 Token::Number(n) => stack.push(Value::Number(n)),
-                Token::True => stack.push(Value::Bool(true)),
-                Token::False => stack.push(Value::Bool(false)),
+                Token::True => stack.push(Value::BuiltIn(BuiltIn::True)),
+                Token::False => stack.push(Value::BuiltIn(BuiltIn::False)),
                 Token::Nil => stack.push(Value::List(vec![])),
 
                 Token::Inc => stack.push(Value::BuiltIn(BuiltIn::Inc)),
@@ -266,11 +266,18 @@ impl State {
                             }
                         }
                     }
+                    Value::Var(var) => {
+                        // Applying a var function
+                        // TODO - do we need to know its arity?
+                        let v = stack.pop().unwrap();
+                        stack.push(Value::Partial(Box::new(Value::Var(var)), Box::new(v)));
+                    }
                     f => panic!("Unsupported function: {:?}", f),
                 },
                 _ => panic!("{:?}", token),
             }
         }
+        assert!(stack.len() == 1);
         stack[0].clone()
     }
 }
