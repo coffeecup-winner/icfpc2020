@@ -14,22 +14,7 @@ pub enum Value {
     Number(i64),
     List(Vec<Value>), // stored in reverse
     BuiltIn(BuiltIn),
-    Func(Vec<Token>),
     Partial(Box<Value>, Box<Value>),
-}
-
-impl Value {
-    pub fn arity(&self) -> u32 {
-        use Value::*;
-        match self {
-            Var(_) => panic!(),
-            Number(_) => 0,
-            List(_) => 0,
-            BuiltIn(b) => b.arity(),
-            Func(_) => panic!(),
-            Partial(v, _) => v.arity() - 1,
-        }
-    }
 }
 
 // Built-in functions except `ap`
@@ -69,48 +54,6 @@ pub enum BuiltIn {
     StatelessDraw, // #40 - ???
     StatefulDraw,  // #41 - ???
     Galaxy,        // #42
-}
-
-impl BuiltIn {
-    pub fn arity(&self) -> u32 {
-        use BuiltIn::*;
-        match self {
-            Inc => 1,
-            Dec => 1,
-            Add => 2,
-            Mul => 2,
-            Div => 2,
-            Eq => 2,
-            Lt => 2,
-            Mod => 1,
-            Dem => 1,
-            Send => panic!(),
-            Neg => 1,
-            S => 3,
-            C => 3,
-            B => 3,
-            True => 2,
-            False => 2,
-            Pwr2 => 1,
-            I => 1,
-            Cons => 2, // doesn't exactly match the definition
-            Head => 1,
-            Tail => 1,
-            IsNil => 1,
-            // #30 - ???
-            // #31 - ???
-            Draw => panic!(),
-            Checkerboard => panic!(),
-            MultiDraw => panic!(),
-            ModList => panic!(),
-            Send2 => panic!(),
-            If0 => panic!(),
-            Interact => panic!(),
-            StatelessDraw => panic!(),
-            StatefulDraw => panic!(),
-            Galaxy => panic!(),
-        }
-    }
 }
 
 impl State {
@@ -154,13 +97,60 @@ impl State {
             Value::Number(_) => val,
             Value::List(_) => val,
             Value::BuiltIn(_) => val,
-            Value::Func(_) => val,
             Value::Partial(_, _) => val,
         }
     }
 
     pub fn interpret(&mut self, stmt: Stmt) {
         self.raw.insert(stmt.var, stmt.code);
+    }
+
+    fn arity(&self, v: &Value) -> u32 {
+        match v {
+            Value::Var(var) => self.arity(self.compiled.get(&Var::Temp(*var)).unwrap()),
+            Value::Number(_) => 0,
+            Value::List(_) => 0,
+            Value::BuiltIn(b) => {
+                use BuiltIn::*;
+                match b {
+                    Inc => 1,
+                    Dec => 1,
+                    Add => 2,
+                    Mul => 2,
+                    Div => 2,
+                    Eq => 2,
+                    Lt => 2,
+                    Mod => 1,
+                    Dem => 1,
+                    Send => panic!(),
+                    Neg => 1,
+                    S => 3,
+                    C => 3,
+                    B => 3,
+                    True => 2,
+                    False => 2,
+                    Pwr2 => 1,
+                    I => 1,
+                    Cons => 2, // doesn't exactly match the definition
+                    Head => 1,
+                    Tail => 1,
+                    IsNil => 1,
+                    // #30 - ???
+                    // #31 - ???
+                    Draw => panic!(),
+                    Checkerboard => panic!(),
+                    MultiDraw => panic!(),
+                    ModList => panic!(),
+                    Send2 => panic!(),
+                    If0 => panic!(),
+                    Interact => panic!(),
+                    StatelessDraw => panic!(),
+                    StatefulDraw => panic!(),
+                    Galaxy => panic!(),
+                }
+            }
+            Value::Partial(v, _) => self.arity(v) - 1,
+        }
     }
 
     fn compile(&self, code: Vec<Token>) -> Value {
@@ -205,13 +195,14 @@ impl State {
                 Token::StatefulDraw => stack.push(Value::BuiltIn(BuiltIn::StatefulDraw)),
                 Token::Galaxy => stack.push(Value::BuiltIn(BuiltIn::Galaxy)),
 
-                Token::Ap => match stack.pop().unwrap() {
-                    p @ Value::Partial(_, _) => {
-                        match p.arity() {
-                            0 => panic!("Illegal state"),
-                            1 => {
-                                // Applying partially applied functions
-                                if let Value::Partial(f, arg) = p {
+                Token::Ap => {
+                    let x = stack.pop().unwrap();
+                    match self.arity(&x) {
+                        0 => panic!("Illegal state"),
+                        1 => {
+                            match x {
+                                Value::Partial(f, arg) => {
+                                    // Applying partially applied functions
                                     match *f {
                                         Value::BuiltIn(BuiltIn::Cons) => {
                                             let head = arg;
@@ -222,59 +213,46 @@ impl State {
                                                 panic!("Invalid arguments for `cons`");
                                             }
                                         }
-                                        _ => panic!(),
+                                        _ => panic!("{:?}", f),
                                     }
                                 }
-                            }
-                            _ => {
-                                let v = stack.pop().unwrap();
-                                stack.push(Value::Partial(Box::new(p), Box::new(v)));
-                            }
-                        }
-                    }
-                    Value::BuiltIn(b) => {
-                        match b.arity() {
-                            0 => panic!("Illegal state: {:?}", b),
-                            1 => {
-                                // apply function with arity 1
-                                match b {
-                                    BuiltIn::Inc => panic!(),
-                                    BuiltIn::Dec => panic!(),
-                                    BuiltIn::Mod => panic!(),
-                                    BuiltIn::Dem => panic!(),
-                                    BuiltIn::Neg => {
-                                        let v = stack.pop().unwrap();
-                                        if let Value::Number(v) = v {
-                                            stack.push(Value::Number(-v));
-                                        } else {
-                                            panic!("Invalid argument for `neg`")
+                                Value::BuiltIn(b) => {
+                                    match b {
+                                        BuiltIn::Inc => panic!(),
+                                        BuiltIn::Dec => panic!(),
+                                        BuiltIn::Mod => panic!(),
+                                        BuiltIn::Dem => panic!(),
+                                        BuiltIn::Neg => {
+                                            let v = stack.pop().unwrap();
+                                            if let Value::Number(v) = v {
+                                                stack.push(Value::Number(-v));
+                                            } else {
+                                                panic!("Invalid argument for `neg`")
+                                            }
                                         }
+                                        BuiltIn::Pwr2 => panic!(),
+                                        BuiltIn::I => panic!(),
+                                        BuiltIn::Head => panic!(),
+                                        BuiltIn::Tail => panic!(),
+                                        BuiltIn::IsNil => panic!(),
+                                        _ => panic!("Invalid function: {:?}", b),
                                     }
-                                    BuiltIn::Pwr2 => panic!(),
-                                    BuiltIn::I => panic!(),
-                                    BuiltIn::Head => panic!(),
-                                    BuiltIn::Tail => panic!(),
-                                    BuiltIn::IsNil => panic!(),
-                                    _ => panic!("Invalid function: {:?}", b),
                                 }
-                            }
-                            _ => {
-                                // function with arity > 1, partially apply
-                                let v = stack.pop().unwrap();
-                                stack
-                                    .push(Value::Partial(Box::new(Value::BuiltIn(b)), Box::new(v)));
+                                Value::Var(var) => {
+                                    // Applying a var function
+                                    // TODO - do we need to know its arity?
+                                    let v = stack.pop().unwrap();
+                                    stack.push(Value::Partial(Box::new(Value::Var(var)), Box::new(v)));
+                                }
+                                f => panic!("Unsupported function: {:?}", f),
                             }
                         }
+                        _ => {
+                            let v = stack.pop().unwrap();
+                            stack.push(Value::Partial(Box::new(x), Box::new(v)));
+                        }
                     }
-                    Value::Var(var) => {
-                        // Applying a var function
-                        // TODO - do we need to know its arity?
-                        let v = stack.pop().unwrap();
-                        stack.push(Value::Partial(Box::new(Value::Var(var)), Box::new(v)));
-                    }
-                    f => panic!("Unsupported function: {:?}", f),
                 },
-                _ => panic!("{:?}", token),
             }
         }
         assert!(stack.len() == 1);
