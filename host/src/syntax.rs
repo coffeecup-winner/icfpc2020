@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum Token {
     Number(i64), // #1-4 increase to u64 if needed
@@ -40,7 +41,7 @@ pub enum Token {
     Galaxy,        // #42
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Var {
     Named(String),
     Temp(u32),
