@@ -140,7 +140,34 @@ impl State {
         self.eval_value(v, true)
     }
 
-    pub fn eval_value(&self, val: Value, lazy: bool) -> Value {
+    // This will put a single picture into a vector as well
+    pub fn eval_picture_list(&self, val: Value) -> Vec<Picture> {
+        if let Value::Picture(p) = val {
+            return vec![p];
+        } else {
+            let mut curr = val.clone();
+            let mut result = vec![];
+            loop {
+                if let Value::Apply(f0, arg0) = curr {
+                    if let Value::Apply(f1, arg1) = *f0 {
+                        if let Value::BuiltIn(BuiltIn::Cons) = *f1 {
+                            if let Value::Picture(p) = *arg1 {
+                                result.push(p);
+                                curr = *arg0;
+                                continue;
+                            }
+                        }
+                    }
+                } else if Value::BuiltIn(BuiltIn::Nil) == curr {
+                    break;
+                }
+                panic!("Not a picture: {:?}", val);
+            }
+            result
+        }
+    }
+
+    fn eval_value(&self, val: Value, lazy: bool) -> Value {
         // println!("eval_value: {:?}", val);
         match val {
             Value::Var(v) => self.eval_value(self.vars.get(&v).unwrap().clone(), lazy),
@@ -545,24 +572,24 @@ impl State {
         if Value::BuiltIn(BuiltIn::Nil) == val {
             return val;
         }
-        if let Value::Partial1(PartialAp::Cons_1, arg0, arg1) = val {
+        if let Value::Partial1(PartialAp::Cons_1, head, tail) = val {
             return Value::Apply(
                 Box::new(Value::Apply(
                     Box::new(Value::BuiltIn(BuiltIn::Cons)),
-                    Box::new(Value::Picture(self.eval_draw(*arg1))),
+                    Box::new(Value::Picture(self.eval_draw(*head))),
                 )),
-                Box::new(self.eval_multidraw(*arg0)),
+                Box::new(self.eval_multidraw(*tail)),
             );
         }
-        if let Value::Apply(f0, arg0) = val {
-            if let Value::Apply(f1, arg1) = *f0 {
-                if let Value::BuiltIn(BuiltIn::Cons) = *f1 {
+        if let Value::Apply(f1, tail) = val {
+            if let Value::Apply(f0, head) = *f1 {
+                if let Value::BuiltIn(BuiltIn::Cons) = *f0 {
                     return Value::Apply(
                         Box::new(Value::Apply(
                             Box::new(Value::BuiltIn(BuiltIn::Cons)),
-                            Box::new(Value::Picture(self.eval_draw(*arg1))),
+                            Box::new(Value::Picture(self.eval_draw(*head))),
                         )),
-                        Box::new(self.eval_multidraw(*arg0)),
+                        Box::new(self.eval_multidraw(*tail)),
                     );
                 }
             }
@@ -604,12 +631,18 @@ impl State {
 
     fn eval_nested_list(&self, val: Value) -> NestedList {
         match val {
-            Value::Apply(f0, arg0) => {
-                if let Value::Apply(f1, arg1) = *f0 {
-                    if let Value::BuiltIn(BuiltIn::Cons) = *f1 {
+            Value::Partial1(PartialAp::Cons_1, head, tail) => {
+                NestedList::Cons(
+                    Box::new(self.eval_nested_list(*head)),
+                    Box::new(self.eval_nested_list(*tail)),
+                )
+            }
+            Value::Apply(f1, tail) => {
+                if let Value::Apply(f0, head) = *f1 {
+                    if let Value::BuiltIn(BuiltIn::Cons) = *f0 {
                         NestedList::Cons(
-                            Box::new(self.eval_nested_list(*arg1)),
-                            Box::new(self.eval_nested_list(*arg0)),
+                            Box::new(self.eval_nested_list(*head)),
+                            Box::new(self.eval_nested_list(*tail)),
                         )
                     } else {
                         panic!("Invalid list format")
