@@ -13,6 +13,6 @@ fn main() -> io::Result<()> {
         let stmt = parse_line(line);
         state.interpret(stmt);
     }
-    println!("galaxy: {:?}", state.exec(Var::Named("galaxy".to_string())));
+    println!("galaxy: {:?}", state.eval(Var::Named("galaxy".to_string())));
     Ok(())
 }

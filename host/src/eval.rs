@@ -4,8 +4,7 @@ use crate::syntax::{Stmt, Token, Var};
 
 #[derive(Debug, Default)]
 pub struct State {
-    raw: HashMap<Var, Vec<Token>>,
-    compiled: HashMap<Var, Value>,
+    vars: HashMap<Var, Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -14,7 +13,7 @@ pub enum Value {
     Number(i64),
     List(Vec<Value>), // stored in reverse
     BuiltIn(BuiltIn),
-    Partial(Box<Value>, Box<Value>),
+    Apply(Box<Value>, Box<Value>),
 }
 
 // Built-in functions except `ap`
@@ -61,53 +60,43 @@ impl State {
         State::default()
     }
 
-    pub fn exec(&mut self, var: Var) -> Value {
-        let v = self.eval(var).clone();
+    pub fn eval(&mut self, var: Var) -> Value {
+        let v = self.vars.get(&var).unwrap().clone();
         self.eval_value(v)
-    }
-
-    pub fn eval(&mut self, var: Var) -> &Value {
-        println!("{:?}", var);
-        if self.raw.get(&var).is_some() {
-            let code = self.raw.remove(&var).unwrap();
-            // First precompile all dependencies
-            for t in code.iter() {
-                if let Token::Var(v) = t {
-                    if self.raw.get(&Var::Temp(*v)).is_some() {
-                        self.eval(Var::Temp(*v));
-                    }
-                }
-            }
-
-            println!("Compiling {:?}", var);
-            println!("Raw: {:?}", code);
-            let v = self.compile(code);
-            println!("Compiled: {:#?}", v);
-            self.compiled.insert(var.clone(), v);
-        }
-        self.compiled.get(&var).unwrap()
     }
 
     pub fn eval_value(&mut self, val: Value) -> Value {
         match val {
             Value::Var(v) => {
-                let v = self.eval(Var::Temp(v)).clone();
+                let v = self.vars.get(&Var::Temp(v)).unwrap().clone();
                 self.eval_value(v)
             }
             Value::Number(_) => val,
             Value::List(_) => val,
             Value::BuiltIn(_) => val,
-            Value::Partial(_, _) => val,
+            Value::Apply(f, arg) => {
+                let e_f = self.eval_value(*f);
+                let e_arg = self.eval_value(*arg);
+                println!("{:#?}", e_f);
+                println!("{:#?}", e_arg);
+                match e_f {
+                    f => panic!("!apply !{:?}", f)
+                }
+            },
         }
     }
 
     pub fn interpret(&mut self, stmt: Stmt) {
-        self.raw.insert(stmt.var, stmt.code);
+        // println!("Compiling {:?}", stmt.var);
+        // println!("Raw: {:?}", stmt.code);
+        let v = self.compile(stmt.code);
+        // println!("Compiled: {:?}", v);
+        self.vars.insert(stmt.var, v);
     }
 
     fn arity(&self, v: &Value) -> u32 {
         match v {
-            Value::Var(var) => self.arity(self.compiled.get(&Var::Temp(*var)).unwrap()),
+            Value::Var(var) => self.arity(self.vars.get(&Var::Temp(*var)).unwrap()),
             Value::Number(_) => 0,
             Value::List(_) => 0,
             Value::BuiltIn(b) => {
@@ -149,7 +138,7 @@ impl State {
                     Galaxy => panic!(),
                 }
             }
-            Value::Partial(v, _) => self.arity(v) - 1,
+            Value::Apply(v, _) => self.arity(v) - 1,
         }
     }
 
@@ -197,61 +186,8 @@ impl State {
 
                 Token::Ap => {
                     let x = stack.pop().unwrap();
-                    match self.arity(&x) {
-                        0 => panic!("Illegal state"),
-                        1 => {
-                            match x {
-                                Value::Partial(f, arg) => {
-                                    // Applying partially applied functions
-                                    match *f {
-                                        Value::BuiltIn(BuiltIn::Cons) => {
-                                            let head = arg;
-                                            if let Value::List(mut tail) = stack.pop().unwrap() {
-                                                tail.push(*head);
-                                                stack.push(Value::List(tail));
-                                            } else {
-                                                panic!("Invalid arguments for `cons`");
-                                            }
-                                        }
-                                        _ => panic!("{:?}", f),
-                                    }
-                                }
-                                Value::BuiltIn(b) => {
-                                    match b {
-                                        BuiltIn::Inc => panic!(),
-                                        BuiltIn::Dec => panic!(),
-                                        BuiltIn::Mod => panic!(),
-                                        BuiltIn::Dem => panic!(),
-                                        BuiltIn::Neg => {
-                                            let v = stack.pop().unwrap();
-                                            if let Value::Number(v) = v {
-                                                stack.push(Value::Number(-v));
-                                            } else {
-                                                panic!("Invalid argument for `neg`")
-                                            }
-                                        }
-                                        BuiltIn::Pwr2 => panic!(),
-                                        BuiltIn::I => panic!(),
-                                        BuiltIn::Head => panic!(),
-                                        BuiltIn::Tail => panic!(),
-                                        BuiltIn::IsNil => panic!(),
-                                        _ => panic!("Invalid function: {:?}", b),
-                                    }
-                                }
-                                Value::Var(var) => {
-                                    // Applying a var function
-                                    // TODO - do we need to know its arity?
-                                    let v = stack.pop().unwrap();
-                                    stack.push(Value::Partial(Box::new(Value::Var(var)), Box::new(v)));
-                                }
-                                f => panic!("Unsupported function: {:?}", f),
-                            }
-                        }
-                        _ => {
-                            let v = stack.pop().unwrap();
-                            stack.push(Value::Partial(Box::new(x), Box::new(v)));
-                        }
-                    }
+                    let v = stack.pop().unwrap();
+                    stack.push(Value::Apply(Box::new(x), Box::new(v)));
                 },
             }
         }
