@@ -178,3 +178,11 @@ ap nil 42 == t
 PRINT isnil
 ap isnil nil == t
 ap isnil ap ap cons 1 nil == f
+
+PRINT ( , )
+( ) == nil
+( 1 ) == ap ap cons 1 nil
+( 0 , 1 ) == ap ap cons 0 ap ap cons 1 nil
+( 0 , 1 , 2 ) == ap ap cons 0 ap ap cons 1 ap ap cons 2 nil
+( 0 , 1 , 2 , 5 ) == ap ap cons 0 ap ap cons 1 ap ap cons 2 ap ap cons 5 nil
+( 0 , ( 1 , 2 ) , 5 ) == ap ap cons 0 ap ap cons ap ap cons 1 ap ap cons 2 nil ap ap cons 5 nil

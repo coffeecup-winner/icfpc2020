@@ -55,56 +55,70 @@ pub struct Stmt {
 
 fn parse(text: &str) -> Vec<Token> {
     let parts: Vec<&str> = text.split(" ").collect();
-    parts
-        .iter()
-        .map(|s| match s {
-            &"inc" => Token::Inc,
-            &"dec" => Token::Dec,
-            &"add" => Token::Add,
-            &"mul" => Token::Mul,
-            &"div" => Token::Div,
-            &"eq" => Token::Eq,
-            &"lt" => Token::Lt,
-            // Mod, // #13 - ???
-            // Dem, // #14 - ???
-            // Send, // #15 - ???
-            &"neg" => Token::Neg,
-            &"ap" => Token::Ap,
-            &"s" => Token::S,
-            &"c" => Token::C,
-            &"b" => Token::B,
-            &"t" => Token::True,
-            &"f" => Token::False,
-            &"pwr2" => Token::Pwr2,
-            &"i" => Token::I,
-            &"cons" => Token::Cons,
-            &"car" => Token::Head,
-            &"cdr" => Token::Tail,
-            &"nil" => Token::Nil,
-            &"isnil" => Token::IsNil,
-            // // #30 - ???
-            // // #31 - ???
-            // Draw, // #32
-            // Checkerboard, // #33
-            // MultiDraw, // #34
-            // ModList, // #35 - ???
-            // Send2, // #36 - ???
-            // If0, // #37
-            // Interact, // #38-39 - ???
-            // StatelessDraw, // #40 - ???
-            // StatefulDraw, // #41 - ???
-            // Galaxy, // #42
-            s if s.starts_with(":") => {
-                Token::Var(s.strip_prefix(":").unwrap().parse::<u32>().unwrap())
+    let mut new_item = false;
+    let mut result = vec![];
+    for s in parts {
+        if s == ")" {
+            new_item = false;
+            result.push(Token::Nil);
+        } else {
+            if new_item {
+                result.push(Token::Ap);
+                result.push(Token::Ap);
+                result.push(Token::Cons);
+                new_item = false;
             }
-            s if s.chars().all(|c| c.is_ascii_digit())
-                || s.starts_with("-") && s.chars().skip(1).all(|c| c.is_ascii_digit()) =>
-            {
-                Token::Number(s.parse::<i64>().unwrap())
+            match s {
+                "inc" => result.push(Token::Inc),
+                "dec" => result.push(Token::Dec),
+                "add" => result.push(Token::Add),
+                "mul" => result.push(Token::Mul),
+                "div" => result.push(Token::Div),
+                "eq" => result.push(Token::Eq),
+                "lt" => result.push(Token::Lt),
+                "mod" => result.push(Token::Mod),
+                "dem" => result.push(Token::Dem),
+                "send" => result.push(Token::Send),
+                "neg" => result.push(Token::Neg),
+                "ap" => result.push(Token::Ap),
+                "s" => result.push(Token::S),
+                "c" => result.push(Token::C),
+                "b" => result.push(Token::B),
+                "t" => result.push(Token::True),
+                "f" => result.push(Token::False),
+                "pwr2" => result.push(Token::Pwr2),
+                "i" => result.push(Token::I),
+                "cons" => result.push(Token::Cons),
+                "car" => result.push(Token::Head),
+                "cdr" => result.push(Token::Tail),
+                "nil" => result.push(Token::Nil),
+                "isnil" => result.push(Token::IsNil),
+                "(" => new_item = true,
+                "," => new_item = true,
+                // // #31 - ???
+                // Draw, // #32
+                // Checkerboard, // #33
+                // MultiDraw, // #34
+                // ModList, // #35 - ???
+                // Send2, // #36 - ???
+                // If0, // #37
+                // Interact, // #38-39 - ???
+                // StatelessDraw, // #40 - ???
+                // StatefulDraw, // #41 - ???
+                // Galaxy, // #42
+                s if s.starts_with(":") => result.push(Token::Var(
+                    s.strip_prefix(":").unwrap().parse::<u32>().unwrap(),
+                )),
+                s if s.chars().all(|c| c.is_ascii_digit())
+                    || s.starts_with("-") && s.chars().skip(1).all(|c| c.is_ascii_digit()) =>
+                {
+                    result.push(Token::Number(s.parse::<i64>().unwrap()))
+                }
+                _ => panic!(format!("{}", s)),
             }
-            _ => panic!(format!("{}", s)),
-        })
-        .collect()
+        }
+    }
+    result
 }
 
 pub fn parse_line(text: &str) -> Stmt {
