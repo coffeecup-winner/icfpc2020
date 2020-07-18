@@ -52,7 +52,7 @@ fn modulate(signed_num: i64, res: &mut Vec<bool>) -> () {
     for i in 0..encoded_space {
         // MSB first
         let mask = 1u64 << encoded_space - 1 - i;
-        res.push(num & mask == 0);
+        res.push(num & mask != 0);
     }
 }
 
@@ -104,7 +104,7 @@ mod tests {
     fn test_mod_num() {
         assert_eq!(mod_num(0), v("010"));
         assert_eq!(mod_num(1), v("01100001"));
-        assert_eq!(mod_num(1), v("10100001"));
+        assert_eq!(mod_num(-1), v("10100001"));
         assert_eq!(mod_num(2), v("01100010"));
         assert_eq!(mod_num(-2), v("10100010"));
         assert_eq!(mod_num(16), v("0111000010000"));
