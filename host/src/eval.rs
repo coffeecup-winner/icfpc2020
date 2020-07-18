@@ -183,7 +183,16 @@ impl State {
                     Value::BuiltIn(BuiltIn::Mod) => {
                         match self.eval_value(*arg) {
                             Value::Number(n) => Value::Signal(modem::mod_num(n)),
+                            // TODO: lists
                             _ => panic!("Invalid argument for `mod`"),
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::Dem) => {
+                        if let Value::Signal(s) = self.eval_value(*arg) {
+                            let list = modem::dem_list(&s);
+                            panic!("TODO: demodulate {:?}", list);
+                        } else {
+                            panic!("Invalid argument for `dem`");
                         }
                     }
                     Value::BuiltIn(BuiltIn::Neg) => {
