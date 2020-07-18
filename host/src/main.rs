@@ -1,10 +1,12 @@
 use std::{env, fs, io};
 
 mod eval;
+mod interact;
 mod modem;
 mod syntax;
 
 use crate::eval::{BuiltIn, State, Value};
+use crate::interact::*;
 use crate::syntax::*;
 
 fn run_test(file: String) {
@@ -55,16 +57,22 @@ fn run_test(file: String) {
 }
 
 fn main() -> io::Result<()> {
-    let file = fs::read_to_string(env::args().nth(1).unwrap())?;
-    if file.starts_with("TEST") {
-        run_test(file);
+    if env::args().len() == 2 {
+        let file = fs::read_to_string(env::args().nth(1).unwrap())?;
+        if file.starts_with("TEST") {
+            run_test(file);
+        } else {
+            let mut state = State::new();
+            for line in file.lines() {
+                let stmt = parse_line(line);
+                state.interpret(stmt);
+            }
+            println!("galaxy: {:?}", state.eval(Var::Named("galaxy".to_string())));
+        }
     } else {
         let mut state = State::new();
-        for line in file.lines() {
-            let stmt = parse_line(line);
-            state.interpret(stmt);
-        }
-        println!("galaxy: {:?}", state.eval(Var::Named("galaxy".to_string())));
+        state.interpret(parse_line("statelessdraw = ap ap c ap ap b b ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c ap ap b cons ap ap c cons nil nil"));
+        run_interaction(state, "statelessdraw");
     }
     Ok(())
 }

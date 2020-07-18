@@ -10,7 +10,7 @@ pub struct State {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
-    Var(u32),
+    Var(Var),
     Number(i64),
     Signal(Vec<bool>), // used with modulate / demodulate
     Picture(Picture),
@@ -141,7 +141,7 @@ impl State {
     pub fn eval_value(&mut self, val: Value) -> Value {
         // println!("eval_value: {:?}", val);
         match val {
-            Value::Var(v) => self.eval_value(self.vars.get(&Var::Temp(v)).unwrap().clone()),
+            Value::Var(v) => self.eval_value(self.vars.get(&v).unwrap().clone()),
             Value::Number(_) => val,
             Value::Signal(_) => val,
             Value::Picture(_) => val,
@@ -318,9 +318,9 @@ impl State {
                     }
                     Value::Partial1(PartialAp::If0_1, arg0, arg1) => {
                         if let Value::Number(0) = self.eval_value(*arg0) {
-                            *arg1
+                            self.eval_value(*arg1)
                         } else {
-                            *arg
+                            self.eval_value(*arg)
                         }
                     }
                     f => panic!("!{:?}", f),

@@ -5,7 +5,7 @@ pub enum Token {
     Inc,         // #5
     Dec,         // #6
     Add,         // #7
-    Var(u32),    // #8 - ???
+    Var(Var),    // #8 - ???
     Mul,         // #9
     Div,         // #10
     Eq,          // #11
@@ -104,9 +104,9 @@ fn parse(text: &str) -> Vec<Token> {
                 // StatelessDraw, // #40 - ???
                 // StatefulDraw, // #41 - ???
                 // Galaxy, // #42
-                s if s.starts_with(":") => result.push(Token::Var(
+                s if s.starts_with(":") => result.push(Token::Var(Var::Temp(
                     s.strip_prefix(":").unwrap().parse::<u32>().unwrap(),
-                )),
+                ))),
                 s if s.chars().all(|c| c.is_ascii_digit())
                     || s.starts_with("-") && s.chars().skip(1).all(|c| c.is_ascii_digit()) =>
                 {
