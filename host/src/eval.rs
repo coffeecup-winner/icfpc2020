@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::modem::{self, NestedList};
 use crate::syntax::{Stmt, Token, Var};
+use crate::send;
 
 #[derive(Debug, Default)]
 pub struct State {
@@ -179,6 +180,25 @@ impl State {
             Value::Apply(f, arg) => {
                 let e_f = self.eval_value(*f, lazy);
                 match e_f {
+                    Value::BuiltIn(BuiltIn::Send) => {
+                        let arg = self.eval_nested_list(*arg);
+                        let signal = modem::mod_list(&arg);
+                        let signal_str = signal.iter().map(|x| if *x { '1' } else { '0' }).collect::<String>();
+                        let endpoint = String::from("https://icfpc2020-api.testkontur.ru/aliens/send");
+                        let token = String::from("xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+                        let response = match send::request(&endpoint, None, &signal_str) {
+                            Ok(val) => val,
+                            Err(err) => panic!("request failed: {:?}", err)
+                        };
+
+                        let demodulated = match modem::demodulate(&mut response.chars().map(|x| x != '0')) {
+                            Ok(val) => val,
+                            Err(err) => panic!("demodulation failed: {:?}", err)
+                        };
+                        println!("demodulated to: {:?}", demodulated);
+
+                        Value::Number(1)
+                    }
                     Value::BuiltIn(BuiltIn::Inc) => {
                         if let Value::Number(n) = self.eval_value(*arg, lazy) {
                             Value::Number(n + 1)

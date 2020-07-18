@@ -91,7 +91,7 @@ fn demodulate_value(negative: bool, iter: &mut dyn Iterator<Item = bool>) -> Res
     Ok(if negative { -(res as i64) } else { res as i64 })
 }
 
-fn demodulate(iter: &mut dyn Iterator<Item = bool>) -> Result<NestedList, ()> {
+pub fn demodulate(iter: &mut dyn Iterator<Item = bool>) -> Result<NestedList, ()> {
     use NestedList::*;
 
     let a = iter_next(iter)?;

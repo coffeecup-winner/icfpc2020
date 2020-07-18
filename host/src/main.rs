@@ -4,6 +4,7 @@ mod eval;
 mod interact;
 mod modem;
 mod syntax;
+mod send;
 
 use crate::eval::{Picture, State};
 use crate::interact::*;
