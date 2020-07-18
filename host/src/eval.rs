@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, LinkedList};
 
 use crate::syntax::{Stmt, Token, Var};
 
@@ -28,23 +28,11 @@ pub enum PartialAp {
 pub enum Value {
     Var(u32),
     Number(i64),
-    List(Vec<Value>), // stored in reverse
+    List(LinkedList<Value>),
     BuiltIn(BuiltIn),
     Apply(Box<Value>, Box<Value>),
-    Partial(PartialAp, Box<Value>),
-}
-
-impl Value {
-    pub fn is_false(&self) -> bool {
-        if let Value::Apply(f0, arg0) = self {
-            if let Value::Apply(f1, arg1) = &**f0 {
-                if let Value::BuiltIn(BuiltIn::False) = &**f1 {
-                    return true;
-                }
-            }
-        }
-        false
-    }
+    Partial0(PartialAp, Box<Value>),
+    Partial1(PartialAp, Box<Value>, Box<Value>),
 }
 
 // Built-in functions except `ap`
@@ -113,12 +101,129 @@ impl State {
                             panic!("Invalid argument for `inc`");
                         }
                     }
-                    Value::BuiltIn(BuiltIn::False) => Value::Partial(PartialAp::False_0, arg),
-                    Value::Partial(PartialAp::False_0, _) => *arg,
+                    Value::BuiltIn(BuiltIn::Dec) => {
+                        if let Value::Number(n) = self.eval_value(*arg) {
+                            Value::Number(n - 1)
+                        } else {
+                            panic!("Invalid argument for `dec`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::Add) => Value::Partial0(PartialAp::Add_0, arg),
+                    Value::Partial0(PartialAp::Add_0, arg0) => {
+                        if let Value::Number(b) = self.eval_value(*arg) {
+                            if let Value::Number(a) = self.eval_value(*arg0) {
+                                Value::Number(a + b)
+                            } else {
+                                panic!("Invalid argument for `add`");
+                            }
+                        } else {
+                            panic!("Invalid argument for `add`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::Mul) => Value::Partial0(PartialAp::Mul_0, arg),
+                    Value::Partial0(PartialAp::Mul_0, arg0) => {
+                        if let Value::Number(b) = self.eval_value(*arg) {
+                            if let Value::Number(a) = self.eval_value(*arg0) {
+                                Value::Number(a * b)
+                            } else {
+                                panic!("Invalid argument for `mul`");
+                            }
+                        } else {
+                            panic!("Invalid argument for `mul`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::Div) => Value::Partial0(PartialAp::Div_0, arg),
+                    Value::Partial0(PartialAp::Div_0, arg0) => {
+                        if let Value::Number(b) = self.eval_value(*arg) {
+                            if let Value::Number(a) = self.eval_value(*arg0) {
+                                Value::Number(a / b)
+                            } else {
+                                panic!("Invalid argument for `div`");
+                            }
+                        } else {
+                            panic!("Invalid argument for `div`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::Eq) => Value::Partial0(PartialAp::Eq_0, arg),
+                    Value::Partial0(PartialAp::Eq_0, arg0) => {
+                        if let Value::Number(b) = self.eval_value(*arg) {
+                            if let Value::Number(a) = self.eval_value(*arg0) {
+                                if a == b {
+                                    Value::BuiltIn(BuiltIn::True)
+                                } else {
+                                    Value::BuiltIn(BuiltIn::False)
+                                }
+                            } else {
+                                panic!("Invalid argument for `eq`");
+                            }
+                        } else {
+                            panic!("Invalid argument for `eq`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::Lt) => Value::Partial0(PartialAp::Lt_0, arg),
+                    Value::Partial0(PartialAp::Lt_0, arg0) => {
+                        if let Value::Number(b) = self.eval_value(*arg) {
+                            if let Value::Number(a) = self.eval_value(*arg0) {
+                                if a < b {
+                                    Value::BuiltIn(BuiltIn::True)
+                                } else {
+                                    Value::BuiltIn(BuiltIn::False)
+                                }
+                            } else {
+                                panic!("Invalid argument for `lt`");
+                            }
+                        } else {
+                            panic!("Invalid argument for `lt`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::Neg) => {
+                        if let Value::Number(n) = self.eval_value(*arg) {
+                            Value::Number(-n)
+                        } else {
+                            panic!("Invalid argument for `neg`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::S) => Value::Partial0(PartialAp::S_0, arg),
+                    Value::Partial0(PartialAp::S_0, arg0) => {
+                        Value::Partial1(PartialAp::S_1, arg0, arg)
+                    }
+                    Value::Partial1(PartialAp::S_1, arg0, arg1) => {
+                        self.eval_value(Value::Apply(
+                            Box::new(Value::Apply(arg0, arg.clone())), // If costly, use Rc
+                            Box::new(Value::Apply(arg1, arg)),
+                        ))
+                    }
+                    Value::BuiltIn(BuiltIn::C) => Value::Partial0(PartialAp::C_0, arg),
+                    Value::Partial0(PartialAp::C_0, arg0) => {
+                        Value::Partial1(PartialAp::C_1, arg0, arg)
+                    }
+                    Value::Partial1(PartialAp::C_1, arg0, arg1) => {
+                        self.eval_value(Value::Apply(Box::new(Value::Apply(arg0, arg)), arg1))
+                    }
+                    Value::BuiltIn(BuiltIn::B) => Value::Partial0(PartialAp::B_0, arg),
+                    Value::Partial0(PartialAp::B_0, arg0) => {
+                        Value::Partial1(PartialAp::B_1, arg0, arg)
+                    }
+                    Value::Partial1(PartialAp::B_1, arg0, arg1) => {
+                        self.eval_value(Value::Apply(arg0, Box::new(Value::Apply(arg1, arg))))
+                    }
+                    Value::BuiltIn(BuiltIn::True) => Value::Partial0(PartialAp::True_0, arg),
+                    Value::Partial0(PartialAp::True_0, arg0) => self.eval_value(*arg0),
+                    Value::BuiltIn(BuiltIn::False) => Value::Partial0(PartialAp::False_0, arg),
+                    Value::Partial0(PartialAp::False_0, _) => self.eval_value(*arg),
+                    Value::BuiltIn(BuiltIn::Pwr2) => {
+                        if let Value::Number(n) = self.eval_value(*arg) {
+                            Value::Number((2 as i64).pow(n as u32))
+                        } else {
+                            panic!("Invalid argument for `pwr2`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::I) => self.eval_value(*arg),
                     f => panic!("!{:?}", f),
                 }
             }
-            Value::Partial(_, _) => panic!(),
+            Value::Partial0(_, _) => panic!(),
+            Value::Partial1(_, _, _) => panic!(),
         }
     }
 
@@ -139,7 +244,7 @@ impl State {
                 Token::Number(n) => stack.push(Value::Number(n)),
                 Token::True => stack.push(Value::BuiltIn(BuiltIn::True)),
                 Token::False => stack.push(Value::BuiltIn(BuiltIn::False)),
-                Token::Nil => stack.push(Value::List(vec![])),
+                Token::Nil => stack.push(Value::List(LinkedList::new())),
 
                 Token::Inc => stack.push(Value::BuiltIn(BuiltIn::Inc)),
                 Token::Dec => stack.push(Value::BuiltIn(BuiltIn::Dec)),

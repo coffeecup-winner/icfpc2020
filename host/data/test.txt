@@ -10,3 +10,152 @@ ap inc 301 == 302
 ap inc -1 == 0
 ap inc -2 == -1
 ap inc -3 == -2
+
+PRINT dec
+ap dec 1 == 0
+ap dec 2 == 1
+ap dec 3 == 2
+ap dec 4 == 3
+ap dec 1024 == 1023
+ap dec 0 == -1
+ap dec -1 == -2
+ap dec -2 == -3
+
+PRINT add
+ap ap add 1 2 == 3
+ap ap add 2 1 == 3
+ap ap add 0 1 == 1
+ap ap add 2 3 == 5
+ap ap add 3 5 == 8
+
+PRINT mul
+ap ap mul 4 2 == 8
+ap ap mul 3 4 == 12
+ap ap mul 3 -2 == -6
+
+PRINT div
+ap ap div 4 2 == 2
+ap ap div 4 3 == 1
+ap ap div 4 4 == 1
+ap ap div 4 5 == 0
+ap ap div 5 2 == 2
+ap ap div 6 -2 == -3
+ap ap div 5 -3 == -1
+ap ap div -5 3 == -1
+ap ap div -5 -3 == 1
+
+PRINT eq
+ap ap eq 0 -2 == f
+ap ap eq 0 -1 == f
+ap ap eq 0 0 == t
+ap ap eq 0 1 == f
+ap ap eq 0 2 == f
+ap ap eq 1 -1 == f
+ap ap eq 1 0 == f
+ap ap eq 1 1 == t
+ap ap eq 1 2 == f
+ap ap eq 1 3 == f
+ap ap eq 2 0 == f
+ap ap eq 2 1 == f
+ap ap eq 2 2 == t
+ap ap eq 2 3 == f
+ap ap eq 2 4 == f
+ap ap eq 19 20 == f
+ap ap eq 20 20 == t
+ap ap eq 21 20 == f
+ap ap eq -19 -20 == f
+ap ap eq -20 -20 == t
+ap ap eq -21 -20 == f
+
+PRINT lt
+ap ap lt 0 -1 == f
+ap ap lt 0 0 == f
+ap ap lt 0 1 == t
+ap ap lt 0 2 == t
+ap ap lt 1 0 == f
+ap ap lt 1 1 == f
+ap ap lt 1 2 == t
+ap ap lt 1 3 == t
+ap ap lt 2 1 == f
+ap ap lt 2 2 == f
+ap ap lt 2 3 == t
+ap ap lt 2 4 == t
+ap ap lt 19 20 == t
+ap ap lt 20 20 == f
+ap ap lt 21 20 == f
+ap ap lt -19 -20 == f
+ap ap lt -20 -20 == f
+ap ap lt -21 -20 == t
+
+PRINT neg
+ap neg 0 == 0
+ap neg 1 == -1
+ap neg -1 == 1
+ap neg 2 == -2
+ap neg -2 == 2
+
+PRINT ap
+ap inc ap inc 0 == 2
+ap inc ap inc ap inc 0 == 3
+ap ap add ap ap add 2 3 4 == 9
+ap ap add 2 ap ap add 3 4 == 9
+ap ap add ap ap mul 2 3 4 == 10
+ap ap mul 2 ap ap add 3 4 == 14
+
+PRINT s
+ap ap ap s add inc 1 == 3
+ap ap ap s mul ap add 1 6 == 42
+
+PRINT c
+ap ap ap c add 1 2 == 3
+ap ap ap c div 5 10 == 2
+
+PRINT b
+ap ap ap b inc dec 1 == 1
+ap ap ap b ap mul 3 ap add 2 1 == 9
+
+PRINT t
+ap ap t 1 5 == 1
+ap ap t t i == t
+ap ap t t ap inc 5 == t
+ap ap t ap inc 5 t == 6
+
+PRINT f
+ap ap f 1 5 == 5
+ap ap f i t == t
+ap ap f t ap inc 5 == 6
+ap ap f ap inc 5 t == t
+
+PRINT pwr2
+ap pwr2 0 == ap ap ap s ap ap c ap eq 0 1 ap ap b ap mul 2 ap ap b pwr2 ap add -1 0
+ap pwr2 0 == ap ap ap ap c ap eq 0 1 0 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 0
+ap pwr2 0 == ap ap ap ap eq 0 0 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 0
+ap pwr2 0 == ap ap t 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 0
+ap pwr2 0 == 1
+ap pwr2 1 == ap ap ap s ap ap c ap eq 0 1 ap ap b ap mul 2 ap ap b pwr2 ap add -1 1
+ap pwr2 1 == ap ap ap ap c ap eq 0 1 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 1
+ap pwr2 1 == ap ap ap ap eq 0 1 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 1
+ap pwr2 1 == ap ap f 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 1
+ap pwr2 1 == ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 1
+ap pwr2 1 == ap ap mul 2 ap ap ap b pwr2 ap add -1 1
+ap pwr2 1 == ap ap mul 2 ap pwr2 ap ap add -1 1
+ap pwr2 1 == ap ap mul 2 ap ap ap s ap ap c ap eq 0 1 ap ap b ap mul 2 ap ap b pwr2 ap add -1 ap ap add -1 1
+ap pwr2 1 == ap ap mul 2 ap ap ap ap c ap eq 0 1 ap ap add -1 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 ap ap add -1 1
+ap pwr2 1 == ap ap mul 2 ap ap ap ap eq 0 ap ap add -1 1 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 ap ap add -1 1
+ap pwr2 1 == ap ap mul 2 ap ap ap ap eq 0 0 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 ap ap add -1 1
+ap pwr2 1 == ap ap mul 2 ap ap t 1 ap ap ap b ap mul 2 ap ap b pwr2 ap add -1 ap ap add -1 1
+ap pwr2 1 == ap ap mul 2 1
+ap pwr2 1 == 2
+ap pwr2 2 == ap ap ap s ap ap c ap eq 0 1 ap ap b ap mul 2 ap ap b pwr2 ap add -1 2
+ap pwr2 2 == 4
+ap pwr2 3 == 8
+ap pwr2 4 == 16
+ap pwr2 5 == 32
+ap pwr2 6 == 64
+ap pwr2 7 == 128
+ap pwr2 8 == 256
+
+PRINT i
+ap i 1 == 1
+ap i i == i
+ap i ap add 1 == ap add 1

@@ -21,9 +21,9 @@ fn main() -> io::Result<()> {
             let (expr, expected) = parse_test(line);
             state.interpret(expr);
             state.interpret(expected);
-            assert!(
-                state.eval(Var::Named("expr".to_string()))
-                    == state.eval(Var::Named("expected".to_string()))
+            assert_eq!(
+                state.eval(Var::Named("expr".to_string())),
+                state.eval(Var::Named("expected".to_string()))
             );
         }
     } else {
