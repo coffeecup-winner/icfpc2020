@@ -7,23 +7,29 @@ pub enum NestedList {
 
 pub fn mod_num(number: i64) -> Vec<bool> {
     let mut res: Vec<bool> = vec![];
-    modulate(number, &mut res);
+    modulate_value(number, &mut res);
     res
 }
 
 pub fn mod_list(list: &NestedList) -> Vec<bool> {
-    panic!()
+    let mut res: Vec<bool> = vec![];
+    modulate(list, &mut res);
+    res
 }
 
 pub fn dem_num(data: &Vec<bool>) -> i64 {
-    panic!()
+    use NestedList::*;
+    match demodulate(&mut data.iter().copied()).unwrap() {
+        Number(num) => num,
+        _ => panic!("`dem_num` demodulate returned an unexpected type (nil or cons)"),
+    }
 }
 
 pub fn dem_list(data: &Vec<bool>) -> NestedList {
-    panic!()
+    demodulate(&mut data.iter().copied()).unwrap()
 }
 
-fn modulate(signed_num: i64, res: &mut Vec<bool>) -> () {
+fn modulate_value(signed_num: i64, res: &mut Vec<bool>) -> () {
     if signed_num >= 0 {
         res.push(false);
         res.push(true);
@@ -58,13 +64,32 @@ fn modulate(signed_num: i64, res: &mut Vec<bool>) -> () {
     }
 }
 
-fn demodulate_value(negative: bool, iter: &mut Iterator<Item = bool>) -> Result<i64, ()> {
+fn modulate(val: &NestedList, res: &mut Vec<bool>) -> () {
+    use NestedList::*;
+
+    match val {
+        Number(number) => modulate_value(*number, res),
+        Nil => {
+            res.push(false);
+            res.push(false);
+        }
+        Cons(a, b) => {
+            res.push(true);
+            res.push(true);
+            modulate(a, res);
+            modulate(b, res);
+        }
+    }
+}
+
+fn iter_next(iter: &mut dyn Iterator<Item = bool>) -> Result<bool, ()> {
+    iter.next().ok_or(())
+}
+
+fn demodulate_value(negative: bool, iter: &mut dyn Iterator<Item = bool>) -> Result<i64, ()> {
     let used_nibbles = 'outer: loop {
         for i in 0u64.. {
-            if !match iter.next() {
-                Some(val) => val,
-                None => return Err(()),
-            } {
+            if !iter_next(iter)? {
                 break 'outer i;
             }
         }
@@ -72,15 +97,29 @@ fn demodulate_value(negative: bool, iter: &mut Iterator<Item = bool>) -> Result<
 
     let mut res = 0u64;
     for i in 0..(used_nibbles * 4) {
-        if match iter.next() {
-            Some(val) => val,
-            None => return Err(()),
-        } {
+        if iter_next(iter)? {
             res |= 1u64 << i;
         }
     }
 
     Ok(if negative { -(res as i64) } else { res as i64 })
+}
+
+fn demodulate(iter: &mut dyn Iterator<Item = bool>) -> Result<NestedList, ()> {
+    use NestedList::*;
+
+    let a = iter_next(iter)?;
+    let b = iter_next(iter)?;
+
+    match (a, b) {
+        (false, false) => Ok(Nil),
+        (true, true) => {
+            let left = demodulate(iter)?;
+            let right = demodulate(iter)?;
+            Ok(Cons(Box::new(left), Box::new(right)))
+        }
+        (neg, _) => Ok(Number(demodulate_value(neg, iter)?)),
+    }
 }
 
 #[cfg(test)]
@@ -118,11 +157,19 @@ mod tests {
         assert_eq!(mod_list(&Nil), v("00"));
         assert_eq!(mod_list(&cons(Nil, Nil)), v("110000"));
         assert_eq!(mod_list(&cons(Number(0), Nil)), v("1101000"));
-        let one_two_nil = v("110110000101100010");
-        assert_eq!(mod_list(&cons(Number(1), Number(2))), one_two_nil);
-        assert_eq!(mod_list(&cons(Number(1), cons(Number(2), Nil))), one_two_nil);
+        assert_eq!(
+            mod_list(&cons(Number(1), Number(2))),
+            v("110110000101100010")
+        );
+        assert_eq!(
+            mod_list(&cons(Number(1), cons(Number(2), Nil))),
+            v("1101100001110110001000")
+        );
         let second_item = cons(Number(2), cons(Number(3), Nil));
-        let woosh = cons(Number(1), cons(second_item, cons(Number(4), Nil)));;
-        assert_eq!(mod_list(&woosh), v("110110000111110110001011011000110011011001000"));
+        let woosh = cons(Number(1), cons(second_item, cons(Number(4), Nil)));
+        assert_eq!(
+            mod_list(&woosh),
+            v("1101100001111101100010110110001100110110010000")
+        );
     }
 }
