@@ -189,3 +189,17 @@ PRINT ( , )
 
 PRINT vec
 ap ap ap vec 1 2 add == 3
+
+PRINT draw
+PRINT draw: []
+DRAW ap draw ( )
+PRINT draw: [(1, 1)]
+DRAW ap draw ( ap ap vec 1 1 )
+PRINT draw: [(1, 2)]
+DRAW ap draw ( ap ap vec 1 2 )
+PRINT draw: [(2, 5)]
+DRAW ap draw ( ap ap vec 2 5 )
+PRINT draw: [(1, 2), (3, 1)]
+DRAW ap draw ( ap ap vec 1 2 , ap ap vec 3 1 )
+PRINT draw: [(5, 3), (6, 3), (4, 4), (6, 4), (4, 5)]
+DRAW ap draw ( ap ap vec 5 3 , ap ap vec 6 3 , ap ap vec 4 4 , ap ap vec 6 4 , ap ap vec 4 5 )

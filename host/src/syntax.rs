@@ -94,7 +94,7 @@ fn parse(text: &str) -> Vec<Token> {
                 "isnil" => result.push(Token::IsNil),
                 "(" => new_item = true,
                 "," => new_item = true,
-                // // #31 - ???
+                "draw" => result.push(Token::Draw),
                 // Draw, // #32
                 // Checkerboard, // #33
                 // MultiDraw, // #34
@@ -144,4 +144,12 @@ pub fn parse_test(text: &str) -> (Stmt, Stmt) {
             code: parse(parts[1].trim()),
         },
     )
+}
+
+pub fn parse_picture(text: &str) -> Stmt {
+    let parts: Vec<&str> = text.split("==").collect();
+    Stmt {
+        var: Var::Named("picture".to_string()),
+        code: parse(parts[0].trim()),
+    }
 }

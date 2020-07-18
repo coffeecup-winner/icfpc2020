@@ -1,11 +1,110 @@
 use std::collections::HashMap;
 
-use crate::modem;
+use crate::modem::{self, NestedList};
 use crate::syntax::{Stmt, Token, Var};
 
 #[derive(Debug, Default)]
 pub struct State {
     vars: HashMap<Var, Value>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Value {
+    Var(u32),
+    Number(i64),
+    Signal(Vec<bool>), // used with modulate / demodulate
+    Picture(Picture),
+    BuiltIn(BuiltIn),
+    Apply(Box<Value>, Box<Value>),
+    Partial0(PartialAp, Box<Value>),
+    Partial1(PartialAp, Box<Value>, Box<Value>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Point {
+    x: u32,
+    y: u32,
+}
+
+#[derive(Debug, Default, PartialEq, Clone)]
+pub struct Picture {
+    width: u32,
+    height: u32,
+    points: Vec<Point>,
+}
+
+impl Picture {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add(&mut self, x: u32, y: u32) {
+        // TODO: maybe calculate these later if slow
+        if x >= self.width {
+            self.width = x + 1;
+        }
+        if y >= self.height {
+            self.height = y + 1;
+        }
+        self.points.push(Point { x, y });
+    }
+}
+
+impl std::fmt::Display for Picture {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // SLOW - TODO REWRITE
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.points.contains(&Point { x, y }) {
+                    write!(f, "{}", "#")?;
+                } else {
+                    write!(f, "{}", " ")?;
+                }
+            }
+            if y != self.height - 1 {
+                writeln!(f)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+// Built-in functions except `ap`
+#[derive(Debug, PartialEq, Clone)]
+pub enum BuiltIn {
+    Inc,           // #5
+    Dec,           // #6
+    Add,           // #7
+    Mul,           // #9
+    Div,           // #10
+    Eq,            // #11
+    Lt,            // #12
+    Mod,           // #13 - ???
+    Dem,           // #14 - ???
+    Send,          // #15 - ???
+    Neg,           // #16
+    S,             // #18
+    C,             // #19
+    B,             // #20
+    True,          // #21
+    False,         // #22
+    Pwr2,          // #23 - ???
+    I,             // #24
+    Cons,          // #25
+    Head,          // #26
+    Tail,          // #27
+    Nil,           // #28
+    IsNil,         // #29
+    Draw,          // #32
+    Checkerboard,  // #33
+    MultiDraw,     // #34
+    ModList,       // #35 - ???
+    Send2,         // #36 - ???
+    If0,           // #37
+    Interact,      // #38-39 - ???
+    StatelessDraw, // #40 - ???
+    StatefulDraw,  // #41 - ???
+    Galaxy,        // #42
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -27,57 +126,6 @@ pub enum PartialAp {
     Cons_1,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Value {
-    Var(u32),
-    Number(i64),
-    Signal(Vec<bool>), // used with modulate / demodulate
-    BuiltIn(BuiltIn),
-    Apply(Box<Value>, Box<Value>),
-    Partial0(PartialAp, Box<Value>),
-    Partial1(PartialAp, Box<Value>, Box<Value>),
-}
-
-// Built-in functions except `ap`
-#[derive(Debug, PartialEq, Clone)]
-pub enum BuiltIn {
-    Inc,   // #5
-    Dec,   // #6
-    Add,   // #7
-    Mul,   // #9
-    Div,   // #10
-    Eq,    // #11
-    Lt,    // #12
-    Mod,   // #13 - ???
-    Dem,   // #14 - ???
-    Send,  // #15 - ???
-    Neg,   // #16
-    S,     // #18
-    C,     // #19
-    B,     // #20
-    True,  // #21
-    False, // #22
-    Pwr2,  // #23 - ???
-    I,     // #24
-    Cons,  // #25
-    Head,  // #26
-    Tail,  // #27
-    Nil,   // #28
-    IsNil, // #29
-    // #30 - ???
-    // #31 - ???
-    Draw,          // #32
-    Checkerboard,  // #33
-    MultiDraw,     // #34
-    ModList,       // #35 - ???
-    Send2,         // #36 - ???
-    If0,           // #37
-    Interact,      // #38-39 - ???
-    StatelessDraw, // #40 - ???
-    StatefulDraw,  // #41 - ???
-    Galaxy,        // #42
-}
-
 impl State {
     pub fn new() -> Self {
         State::default()
@@ -94,6 +142,7 @@ impl State {
             Value::Var(v) => self.eval_value(self.vars.get(&Var::Temp(v)).unwrap().clone()),
             Value::Number(_) => val,
             Value::Signal(_) => val,
+            Value::Picture(_) => val,
             Value::BuiltIn(_) => val,
             Value::Apply(f, arg) => {
                 let e_f = self.eval_value(*f);
@@ -259,11 +308,62 @@ impl State {
                             Value::BuiltIn(BuiltIn::False)
                         }
                     }
+                    Value::BuiltIn(BuiltIn::Draw) => {
+                        let mut picture = Picture::new();
+                        let mut list = self.eval_nested_list(*arg);
+                        loop {
+                            // we expect a list of pairs here
+                            match list {
+                                NestedList::Nil => break,
+                                NestedList::Cons(head, tail) => {
+                                    match *head {
+                                        NestedList::Cons(x, y) => {
+                                            if let NestedList::Number(x) = *x {
+                                                if let NestedList::Number(y) = *y {
+                                                    picture.add(x as u32, y as u32);
+                                                } else {
+                                                    panic!("Invalid list")
+                                                }
+                                            } else {
+                                                panic!("Invalid list")
+                                            }
+                                        }
+                                        _ => panic!("Invalid list"),
+                                    }
+                                    list = *tail;
+                                }
+                                _ => panic!("Invalid list"),
+                            }
+                        }
+                        Value::Picture(picture)
+                    }
                     f => panic!("!{:?}", f),
                 }
             }
             Value::Partial0(_, _) => panic!(),
             Value::Partial1(_, _, _) => panic!(),
+        }
+    }
+
+    fn eval_nested_list(&self, val: Value) -> NestedList {
+        match val {
+            Value::Apply(f0, arg0) => {
+                if let Value::Apply(f1, arg1) = *f0 {
+                    if let Value::BuiltIn(BuiltIn::Cons) = *f1 {
+                        NestedList::Cons(
+                            Box::new(self.eval_nested_list(*arg1)),
+                            Box::new(self.eval_nested_list(*arg0)),
+                        )
+                    } else {
+                        panic!("Invalid list format")
+                    }
+                } else {
+                    panic!("Invalid list format")
+                }
+            }
+            Value::BuiltIn(BuiltIn::Nil) => NestedList::Nil,
+            Value::Number(n) => NestedList::Number(n),
+            _ => panic!("Invalid value in eval_list: {:?}", val),
         }
     }
 

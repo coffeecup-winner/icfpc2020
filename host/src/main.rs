@@ -4,7 +4,7 @@ mod eval;
 mod modem;
 mod syntax;
 
-use crate::eval::State;
+use crate::eval::{State, Value};
 use crate::syntax::*;
 
 fn main() -> io::Result<()> {
@@ -14,18 +14,25 @@ fn main() -> io::Result<()> {
         // Skip the "TEST" line
         for line in file.lines().skip(1) {
             if line.is_empty() {
-                continue;
             } else if let Some(l) = line.strip_prefix("PRINT ") {
                 println!("{}", l);
-                continue;
+            } else if let Some(l) = line.strip_prefix("DRAW ") {
+                let picture = parse_picture(l);
+                state.interpret(picture);
+                if let Value::Picture(p) = state.eval(Var::Named("picture".to_string())) {
+                    println!("{}", p);
+                } else {
+                    panic!("Not a picture");
+                }
+            } else {
+                let (expr, expected) = parse_test(line);
+                state.interpret(expr);
+                state.interpret(expected);
+                assert_eq!(
+                    state.eval(Var::Named("expr".to_string())),
+                    state.eval(Var::Named("expected".to_string()))
+                );
             }
-            let (expr, expected) = parse_test(line);
-            state.interpret(expr);
-            state.interpret(expected);
-            assert_eq!(
-                state.eval(Var::Named("expr".to_string())),
-                state.eval(Var::Named("expected".to_string()))
-            );
         }
     } else {
         let mut state = State::new();
