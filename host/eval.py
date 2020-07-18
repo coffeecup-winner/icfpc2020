@@ -134,12 +134,42 @@ def builtin_f(x):
     return f_y
 
 
+def builtin_s(x):
+    @Callable.wrap
+    def s_y(y):
+        @Callable.wrap
+        def s_z(z):
+            r_x = galaxy_resolve(x)
+            r_y = galaxy_resolve(y)
+            r_z = galaxy_resolve(z)
+            left = apply(r_x)(r_z)
+            right = apply(r_y)(r_z)
+            return apply(left)(right)
+        return s_z
+    return s_y
+
+
+def builtin_mul(x):
+    @Callable.wrap
+    def mul_y(y):
+        return galaxy_resolve(x) * galaxy_resolve(y)
+    return mul_y
+
+def builtin_add(x):
+    @Callable.wrap
+    def add_y(y):
+        return galaxy_resolve(x) + galaxy_resolve(y)
+    return add_y
+
 keywords = {
     "cons": cons,
     "vec": cons,
     "ap": apply,
     "nil": nil,
     "f": builtin_f,
+    "s": builtin_s,
+    "add": builtin_add,
+    "mul": builtin_mul,
 }
 
 
