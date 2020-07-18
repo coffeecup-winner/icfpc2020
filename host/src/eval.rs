@@ -16,6 +16,19 @@ pub enum Value {
     Apply(Box<Value>, Box<Value>),
 }
 
+impl Value {
+    pub fn is_false(&self) -> bool {
+        if let Value::Apply(f0, arg0) = self {
+            if let Value::Apply(f1, arg1) = &**f0 {
+                if let Value::BuiltIn(BuiltIn::False) = &**f1 {
+                    return true
+                }
+            }
+        }
+        false
+    }
+}
+
 // Built-in functions except `ap`
 #[derive(Debug, Clone)]
 pub enum BuiltIn {
@@ -68,17 +81,13 @@ impl State {
     pub fn eval_value(&mut self, val: Value) -> Value {
         match val {
             Value::Var(v) => {
-                let v = self.vars.get(&Var::Temp(v)).unwrap().clone();
-                self.eval_value(v)
+                self.vars.get(&Var::Temp(v)).unwrap().clone()
             }
             Value::Number(_) => val,
             Value::List(_) => val,
             Value::BuiltIn(_) => val,
             Value::Apply(f, arg) => {
                 let e_f = self.eval_value(*f);
-                let e_arg = self.eval_value(*arg);
-                println!("{:#?}", e_f);
-                println!("{:#?}", e_arg);
                 match e_f {
                     f => panic!("!apply !{:?}", f)
                 }
@@ -92,54 +101,6 @@ impl State {
         let v = self.compile(stmt.code);
         // println!("Compiled: {:?}", v);
         self.vars.insert(stmt.var, v);
-    }
-
-    fn arity(&self, v: &Value) -> u32 {
-        match v {
-            Value::Var(var) => self.arity(self.vars.get(&Var::Temp(*var)).unwrap()),
-            Value::Number(_) => 0,
-            Value::List(_) => 0,
-            Value::BuiltIn(b) => {
-                use BuiltIn::*;
-                match b {
-                    Inc => 1,
-                    Dec => 1,
-                    Add => 2,
-                    Mul => 2,
-                    Div => 2,
-                    Eq => 2,
-                    Lt => 2,
-                    Mod => 1,
-                    Dem => 1,
-                    Send => panic!(),
-                    Neg => 1,
-                    S => 3,
-                    C => 3,
-                    B => 3,
-                    True => 2,
-                    False => 2,
-                    Pwr2 => 1,
-                    I => 1,
-                    Cons => 2, // doesn't exactly match the definition
-                    Head => 1,
-                    Tail => 1,
-                    IsNil => 1,
-                    // #30 - ???
-                    // #31 - ???
-                    Draw => panic!(),
-                    Checkerboard => panic!(),
-                    MultiDraw => panic!(),
-                    ModList => panic!(),
-                    Send2 => panic!(),
-                    If0 => panic!(),
-                    Interact => panic!(),
-                    StatelessDraw => panic!(),
-                    StatefulDraw => panic!(),
-                    Galaxy => panic!(),
-                }
-            }
-            Value::Apply(v, _) => self.arity(v) - 1,
-        }
     }
 
     fn compile(&self, code: Vec<Token>) -> Value {

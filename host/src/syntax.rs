@@ -58,8 +58,8 @@ fn parse(text: &str) -> Vec<Token> {
     parts
         .iter()
         .map(|s| match s {
-            // Inc, // #5
-            // Dec, // #6
+            &"inc" => Token::Inc,
+            &"dec" => Token::Dec,
             &"add" => Token::Add,
             &"mul" => Token::Mul,
             &"div" => Token::Div,
@@ -74,8 +74,8 @@ fn parse(text: &str) -> Vec<Token> {
             &"c" => Token::C,
             &"b" => Token::B,
             &"t" => Token::True,
-            // False, // #22
-            // Pwr2, // #23 - ???
+            &"f" => Token::False,
+            &"pwr2" => Token::Pwr2,
             &"i" => Token::I,
             &"cons" => Token::Cons,
             &"car" => Token::Head,
