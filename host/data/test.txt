@@ -203,3 +203,8 @@ PRINT draw: [(1, 2), (3, 1)]
 DRAW ap draw ( ap ap vec 1 2 , ap ap vec 3 1 )
 PRINT draw: [(5, 3), (6, 3), (4, 4), (6, 4), (4, 5)]
 DRAW ap draw ( ap ap vec 5 3 , ap ap vec 6 3 , ap ap vec 4 4 , ap ap vec 6 4 , ap ap vec 4 5 )
+
+PRINT multipledraw
+PRINT multipledraw: [[(1, 2), (3, 1)], [(5, 3), (6, 3), (4, 4), (6, 4), (4, 5)]]
+ap multipledraw nil == nil
+DRAW ap multipledraw ( ( ap ap vec 1 2 , ap ap vec 3 1 ) , ( ap ap vec 5 3 , ap ap vec 6 3 , ap ap vec 4 4 , ap ap vec 6 4 , ap ap vec 4 5 ) )

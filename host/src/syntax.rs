@@ -95,9 +95,8 @@ fn parse(text: &str) -> Vec<Token> {
                 "(" => new_item = true,
                 "," => new_item = true,
                 "draw" => result.push(Token::Draw),
-                // Draw, // #32
                 // Checkerboard, // #33
-                // MultiDraw, // #34
+                "multipledraw" => result.push(Token::MultiDraw),
                 // ModList, // #35 - ???
                 // Send2, // #36 - ???
                 // If0, // #37

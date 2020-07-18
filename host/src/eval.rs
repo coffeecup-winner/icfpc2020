@@ -308,41 +308,63 @@ impl State {
                             Value::BuiltIn(BuiltIn::False)
                         }
                     }
-                    Value::BuiltIn(BuiltIn::Draw) => {
-                        let mut picture = Picture::new();
-                        let mut list = self.eval_nested_list(*arg);
-                        loop {
-                            // we expect a list of pairs here
-                            match list {
-                                NestedList::Nil => break,
-                                NestedList::Cons(head, tail) => {
-                                    match *head {
-                                        NestedList::Cons(x, y) => {
-                                            if let NestedList::Number(x) = *x {
-                                                if let NestedList::Number(y) = *y {
-                                                    picture.add(x as u32, y as u32);
-                                                } else {
-                                                    panic!("Invalid list")
-                                                }
-                                            } else {
-                                                panic!("Invalid list")
-                                            }
-                                        }
-                                        _ => panic!("Invalid list"),
-                                    }
-                                    list = *tail;
-                                }
-                                _ => panic!("Invalid list"),
-                            }
-                        }
-                        Value::Picture(picture)
-                    }
+                    Value::BuiltIn(BuiltIn::Draw) => Value::Picture(self.eval_draw(*arg)),
+                    Value::BuiltIn(BuiltIn::MultiDraw) => self.eval_multidraw(*arg),
                     f => panic!("!{:?}", f),
                 }
             }
             Value::Partial0(_, _) => panic!(),
             Value::Partial1(_, _, _) => panic!(),
         }
+    }
+
+    fn eval_multidraw(&self, val: Value) -> Value {
+        if let Value::Apply(f0, arg0) = val {
+            if let Value::Apply(f1, arg1) = *f0 {
+                if let Value::BuiltIn(BuiltIn::Cons) = *f1 {
+                    return Value::Apply(
+                        Box::new(Value::Apply(
+                            Box::new(Value::BuiltIn(BuiltIn::Cons)),
+                            Box::new(Value::Picture(self.eval_draw(*arg1))),
+                        )),
+                        Box::new(self.eval_multidraw(*arg0)),
+                    );
+                }
+            }
+        } else if Value::BuiltIn(BuiltIn::Nil) == val {
+            return val;
+        }
+        panic!("Invalid multidraw argument")
+    }
+
+    fn eval_draw(&self, val: Value) -> Picture {
+        let mut picture = Picture::new();
+        let mut list = self.eval_nested_list(val);
+        loop {
+            // we expect a list of pairs here
+            match list {
+                NestedList::Nil => break,
+                NestedList::Cons(head, tail) => {
+                    match *head {
+                        NestedList::Cons(x, y) => {
+                            if let NestedList::Number(x) = *x {
+                                if let NestedList::Number(y) = *y {
+                                    picture.add(x as u32, y as u32);
+                                } else {
+                                    panic!("Invalid list")
+                                }
+                            } else {
+                                panic!("Invalid list")
+                            }
+                        }
+                        _ => panic!("Invalid list"),
+                    }
+                    list = *tail;
+                }
+                _ => panic!("Invalid list"),
+            }
+        }
+        picture
     }
 
     fn eval_nested_list(&self, val: Value) -> NestedList {
