@@ -1,0 +1,2 @@
+:1 = ap f :1
+galaxy = ap :1 42

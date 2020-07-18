@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import logging
 import sys
 from argparse import ArgumentParser
@@ -33,11 +32,15 @@ def setup_logger(name):
 
     return logging.getLogger(name)
 
+
 logger = setup_logger("galaxy")
 
 
 class Symbol:
-    """ :42 """
+    # dirty, but I don't think we'll need multiple scopes
+    scope = {}
+
+    """ :42, value """
     __slots__ = ("name",)
 
     def __init__(self, name):
@@ -49,18 +52,27 @@ class Symbol:
     def __hash__(self):
         return hash((Symbol, self.name))
 
-
-class VariableRef:
-    scope = {}
-
-    __slots__ = ("name",)
-
-    def __init__(self, name):
-        self.name = name
+    def __eq__(self, o):
+        if not isinstance(o, Symbol):
+            return False
+        return self.name == o.name
 
     @classmethod
     def set_value(cls, name, value):
         cls.scope[name] = value
+
+    @classmethod
+    def resolve(cls, name):
+        return cls.scope[name]
+
+    def __call__(self):
+        return self.resolve(self)
+
+
+def galaxy_resolve(value):
+    if not isinstance(value, Symbol):
+        return value
+    return value()
 
 
 nil = tuple()
@@ -92,23 +104,19 @@ class Callable:
     def wrap(cls, f):
         return cls(f)
 
+
 def galaxy_callable(e):
     return isinstance(e, Callable)
-
 
 
 @Callable.wrap
 def apply(f):
     @Callable.wrap
     def apply_val(x):
-        return f(x)
-
-    @Callable.wrap
-    def apply_tuple_val(x):
-        return apply(apply(x)(car(f)))(cdr(f))
-
-    if f is tuple:
-        return apply_tuple_val
+        resolved_f = galaxy_resolve(f)
+        if resolved_f is tuple:
+            return apply(apply(x)(car(resolved_f)))(cdr(resolved_f))
+        return resolved_f(x)
     return apply_val
 
 
@@ -119,11 +127,19 @@ def cons(val):
     return cons_list
 
 
+def builtin_f(x):
+    @Callable.wrap
+    def f_y(y):
+        return y
+    return f_y
+
+
 keywords = {
     "cons": cons,
     "vec": cons,
     "ap": apply,
     "nil": nil,
+    "f": builtin_f,
 }
 
 
@@ -193,7 +209,7 @@ def galaxy_repl(line_stream):
         logger.info("line evaluated to %s", eval_result)
 
         if var_name is not None:
-            VariableRef.set_value(var_name, eval_result)
+            Symbol.set_value(var_name, eval_result)
         logger.info("stored into %s", var_name)
 
 
