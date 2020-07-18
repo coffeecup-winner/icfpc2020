@@ -209,7 +209,9 @@ def galaxy_eval(tokens):
 
         logger.debug("starting to apply %s", token)
         res = token
-        while stack:
+        for _ in range(2):
+            if not stack:
+                break
             arg = stack.pop()
             res = res(arg)
             if not galaxy_callable(res):
