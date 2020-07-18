@@ -1,6 +1,7 @@
 use std::{env, fs, io};
 
 mod eval;
+mod modem;
 mod syntax;
 
 use crate::eval::State;

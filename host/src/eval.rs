@@ -1,5 +1,6 @@
 use std::collections::{HashMap, LinkedList};
 
+use crate::modem;
 use crate::syntax::{Stmt, Token, Var};
 
 #[derive(Debug, Default)]
@@ -37,42 +38,6 @@ pub enum Value {
     Partial0(PartialAp, Box<Value>),
     Partial1(PartialAp, Box<Value>, Box<Value>),
 }
-
-fn modulate(signed_num: i64, res: &mut Vec<bool>) -> () {
-    if signed_num >= 0 {
-        res.push(false);
-        res.push(true);
-    } else {
-        res.push(true);
-        res.push(false);
-    }
-
-    let num = {
-        if signed_num >= 0 {
-            signed_num as u64
-        } else {
-            (-signed_num) as u64
-        }
-    };
-
-    // count the number of nibbles required to represent the number
-    let unused_space = num.leading_zeros();
-    let used_space = 64 - unused_space;
-    let needed_nibbles = (used_space + 3) / 4;
-
-    for _ in 0..needed_nibbles {
-        res.push(true);
-    }
-    res.push(false);
-
-    let encoded_space = needed_nibbles * 4;
-    for i in 0..encoded_space {
-        // MSB first
-        let mask = 1u64 << encoded_space - 1 - i;
-        res.push(num & mask == 0);
-    }
-}
-
 
 // Built-in functions except `ap`
 #[derive(Debug, PartialEq, Clone)]
@@ -287,9 +252,7 @@ impl State {
                             _ => panic!("Invalid argument for `mod`"),
                         };
 
-                        let mut res: Vec<bool> = vec![];
-                        modulate(number, &mut res);
-                        Value::Signal(res)
+                        Value::Signal(modem::mod_num(number))
                     }
                     f => panic!("!{:?}", f),
                 }
