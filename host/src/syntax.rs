@@ -27,8 +27,7 @@ pub enum Token {
     Tail,        // #27
     Nil,         // #28
     IsNil,       // #29
-    // #30 - ???
-    // #31 - ???
+    // #30-31 is syntax sugar
     Draw,          // #32
     Checkerboard,  // #33
     MultiDraw,     // #34
@@ -88,7 +87,7 @@ fn parse(text: &str) -> Vec<Token> {
                 "f" => result.push(Token::False),
                 "pwr2" => result.push(Token::Pwr2),
                 "i" => result.push(Token::I),
-                "cons" => result.push(Token::Cons),
+                "cons" | "vec" => result.push(Token::Cons),
                 "car" => result.push(Token::Head),
                 "cdr" => result.push(Token::Tail),
                 "nil" => result.push(Token::Nil),
