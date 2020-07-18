@@ -7,13 +7,31 @@ pub struct State {
     vars: HashMap<Var, Value>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum PartialAp {
+    Add_0,
+    Mul_0,
+    Div_0,
+    Eq_0,
+    Lt_0,
+    S_1,
+    S_0,
+    C_1,
+    C_0,
+    B_1,
+    B_0,
+    True_0,
+    False_0,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Var(u32),
     Number(i64),
     List(Vec<Value>), // stored in reverse
     BuiltIn(BuiltIn),
     Apply(Box<Value>, Box<Value>),
+    Partial(PartialAp, Box<Value>),
 }
 
 impl Value {
@@ -21,7 +39,7 @@ impl Value {
         if let Value::Apply(f0, arg0) = self {
             if let Value::Apply(f1, arg1) = &**f0 {
                 if let Value::BuiltIn(BuiltIn::False) = &**f1 {
-                    return true
+                    return true;
                 }
             }
         }
@@ -30,7 +48,7 @@ impl Value {
 }
 
 // Built-in functions except `ap`
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BuiltIn {
     Inc,   // #5
     Dec,   // #6
@@ -79,19 +97,28 @@ impl State {
     }
 
     pub fn eval_value(&mut self, val: Value) -> Value {
+        // println!("eval_value: {:?}", val);
         match val {
-            Value::Var(v) => {
-                self.vars.get(&Var::Temp(v)).unwrap().clone()
-            }
+            Value::Var(v) => self.eval_value(self.vars.get(&Var::Temp(v)).unwrap().clone()),
             Value::Number(_) => val,
             Value::List(_) => val,
             Value::BuiltIn(_) => val,
             Value::Apply(f, arg) => {
                 let e_f = self.eval_value(*f);
                 match e_f {
-                    f => panic!("!apply !{:?}", f)
+                    Value::BuiltIn(BuiltIn::Inc) => {
+                        if let Value::Number(n) = self.eval_value(*arg) {
+                            Value::Number(n + 1)
+                        } else {
+                            panic!("Invalid argument for `inc`");
+                        }
+                    }
+                    Value::BuiltIn(BuiltIn::False) => Value::Partial(PartialAp::False_0, arg),
+                    Value::Partial(PartialAp::False_0, _) => *arg,
+                    f => panic!("!{:?}", f),
                 }
-            },
+            }
+            Value::Partial(_, _) => panic!(),
         }
     }
 
@@ -149,7 +176,7 @@ impl State {
                     let x = stack.pop().unwrap();
                     let v = stack.pop().unwrap();
                     stack.push(Value::Apply(Box::new(x), Box::new(v)));
-                },
+                }
             }
         }
         assert!(stack.len() == 1);

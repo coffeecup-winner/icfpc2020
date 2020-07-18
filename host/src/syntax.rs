@@ -118,3 +118,17 @@ pub fn parse_line(text: &str) -> Stmt {
         code: parse(parts[1]),
     }
 }
+
+pub fn parse_test(text: &str) -> (Stmt, Stmt) {
+    let parts: Vec<&str> = text.split("==").collect();
+    (
+        Stmt {
+            var: Var::Named("expr".to_string()),
+            code: parse(parts[0].trim()),
+        },
+        Stmt {
+            var: Var::Named("expected".to_string()),
+            code: parse(parts[1].trim()),
+        },
+    )
+}
