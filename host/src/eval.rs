@@ -72,36 +72,35 @@ impl std::fmt::Display for Picture {
 // Built-in functions except `ap`
 #[derive(Debug, PartialEq, Clone)]
 pub enum BuiltIn {
-    Inc,           // #5
-    Dec,           // #6
-    Add,           // #7
-    Mul,           // #9
-    Div,           // #10
-    Eq,            // #11
-    Lt,            // #12
-    Mod,           // #13 - ???
-    Dem,           // #14 - ???
-    Send,          // #15 - ???
-    Neg,           // #16
-    S,             // #18
-    C,             // #19
-    B,             // #20
-    True,          // #21
-    False,         // #22
-    Pwr2,          // #23 - ???
-    I,             // #24
-    Cons,          // #25
-    Head,          // #26
-    Tail,          // #27
-    Nil,           // #28
-    IsNil,         // #29
-    Draw,          // #32
-    Checkerboard,  // #33
-    MultiDraw,     // #34
-    ModList,       // #35 - ???
-    Send2,         // #36 - ???
-    If0,           // #37
-    Interact,      // #38-39 - ???
+    Inc,          // #5
+    Dec,          // #6
+    Add,          // #7
+    Mul,          // #9
+    Div,          // #10
+    Eq,           // #11
+    Lt,           // #12
+    Mod,          // #13 - ???
+    Dem,          // #14 - ???
+    Send,         // #15 - ???
+    Neg,          // #16
+    S,            // #18
+    C,            // #19
+    B,            // #20
+    True,         // #21
+    False,        // #22
+    Pwr2,         // #23 - ???
+    I,            // #24
+    Cons,         // #25
+    Head,         // #26
+    Tail,         // #27
+    Nil,          // #28
+    IsNil,        // #29
+    Draw,         // #32
+    Checkerboard, // #33
+    MultiDraw,    // #34
+    If0,          // #37
+    Interact,     // #38-39 - ???
+    F38,
     StatelessDraw, // #40 - ???
     StatefulDraw,  // #41 - ???
     Galaxy,        // #42
@@ -126,6 +125,9 @@ pub enum PartialAp {
     Cons_1,
     If0_0,
     If0_1,
+    Interact_0,
+    Interact_1,
+    F38_0,
 }
 
 impl State {
@@ -323,6 +325,25 @@ impl State {
                             self.eval_value(*arg)
                         }
                     }
+                    Value::BuiltIn(BuiltIn::Interact) => {
+                        Value::Partial0(PartialAp::Interact_0, arg)
+                    }
+                    Value::Partial0(PartialAp::Interact_0, arg0) => {
+                        Value::Partial1(PartialAp::Interact_1, arg0, arg)
+                    }
+                    Value::Partial1(PartialAp::Interact_1, arg0, arg1) => {
+                        self.eval_value(Value::Apply(
+                            Box::new(Value::Apply(
+                                Box::new(Value::BuiltIn(BuiltIn::F38)),
+                                arg0.clone(),
+                            )),
+                            Box::new(Value::Apply(Box::new(Value::Apply(arg0, arg1)), arg)),
+                        ))
+                    }
+                    Value::BuiltIn(BuiltIn::F38) => Value::Partial0(PartialAp::F38_0, arg),
+                    Value::Partial0(PartialAp::F38_0, arg0) => {
+                        self.eval_value(Self::construct_f38_builtin(arg0, arg))
+                    }
                     f => panic!("!{:?}", f),
                 }
             }
@@ -331,7 +352,79 @@ impl State {
         }
     }
 
-    fn eval_multidraw(&self, val: Value) -> Value {
+    fn construct_f38_builtin(arg0: Box<Value>, arg1: Box<Value>) -> Value {
+        use self::BuiltIn::*;
+        use self::Value::*;
+        let b = |x| Box::new(x);
+        Apply(
+            b(Apply(
+                b(Apply(
+                    b(BuiltIn(If0)),
+                    b(Apply(b(BuiltIn(Head)), arg1.clone())),
+                )),
+                b(Apply(
+                    b(Apply(
+                        b(BuiltIn(Cons)),
+                        b(Apply(
+                            b(BuiltIn(I)),
+                            b(Apply(
+                                b(BuiltIn(Head)),
+                                b(Apply(b(BuiltIn(Tail)), arg1.clone())),
+                            )),
+                        )),
+                    )),
+                    b(Apply(
+                        b(Apply(
+                            b(BuiltIn(Cons)),
+                            b(Apply(
+                                b(BuiltIn(MultiDraw)),
+                                b(Apply(
+                                    b(BuiltIn(Head)),
+                                    b(Apply(
+                                        b(BuiltIn(Tail)),
+                                        b(Apply(b(BuiltIn(Tail)), arg1.clone())),
+                                    )),
+                                )),
+                            )),
+                        )),
+                        b(BuiltIn(Nil)),
+                    )),
+                )),
+            )),
+            b(Apply(
+                b(Apply(
+                    b(Apply(b(BuiltIn(Interact)), arg0)),
+                    b(Apply(
+                        b(BuiltIn(I)),
+                        b(Apply(
+                            b(BuiltIn(Head)),
+                            b(Apply(b(BuiltIn(Tail)), arg1.clone())),
+                        )),
+                    )),
+                )),
+                b(Apply(
+                    b(BuiltIn(Send)),
+                    b(Apply(
+                        b(BuiltIn(Head)),
+                        b(Apply(b(BuiltIn(Tail)), b(Apply(b(BuiltIn(Tail)), arg1)))),
+                    )),
+                )),
+            )),
+        )
+    }
+
+    fn eval_multidraw(&mut self, val: Value) -> Value {
+        // println!("multidraw: {:?}", val);
+        let val = self.eval_value(val);
+        if let Value::Partial1(PartialAp::Cons_1, arg0, arg1) = val {
+            return Value::Apply(
+                Box::new(Value::Apply(
+                    Box::new(Value::BuiltIn(BuiltIn::Cons)),
+                    Box::new(Value::Picture(self.eval_draw(*arg1))),
+                )),
+                Box::new(self.eval_multidraw(*arg0)),
+            );
+        }
         if let Value::Apply(f0, arg0) = val {
             if let Value::Apply(f1, arg1) = *f0 {
                 if let Value::BuiltIn(BuiltIn::Cons) = *f1 {
@@ -444,8 +537,6 @@ impl State {
                 Token::Draw => stack.push(Value::BuiltIn(BuiltIn::Draw)),
                 Token::Checkerboard => stack.push(Value::BuiltIn(BuiltIn::Checkerboard)),
                 Token::MultiDraw => stack.push(Value::BuiltIn(BuiltIn::MultiDraw)),
-                Token::ModList => stack.push(Value::BuiltIn(BuiltIn::ModList)),
-                Token::Send2 => stack.push(Value::BuiltIn(BuiltIn::Send2)),
                 Token::If0 => stack.push(Value::BuiltIn(BuiltIn::If0)),
                 Token::Interact => stack.push(Value::BuiltIn(BuiltIn::Interact)),
                 Token::StatelessDraw => stack.push(Value::BuiltIn(BuiltIn::StatelessDraw)),

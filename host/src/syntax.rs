@@ -5,14 +5,14 @@ pub enum Token {
     Inc,         // #5
     Dec,         // #6
     Add,         // #7
-    Var(Var),    // #8 - ???
+    Var(Var),    // #8
     Mul,         // #9
     Div,         // #10
     Eq,          // #11
     Lt,          // #12
-    Mod,         // #13 - ???
-    Dem,         // #14 - ???
-    Send,        // #15 - ???
+    Mod,         // #13
+    Dem,         // #14
+    Send,        // #15
     Neg,         // #16
     Ap,          // #17
     S,           // #18
@@ -20,7 +20,7 @@ pub enum Token {
     B,           // #20
     True,        // #21
     False,       // #22
-    Pwr2,        // #23 - ???
+    Pwr2,        // #23
     I,           // #24
     Cons,        // #25
     Head,        // #26
@@ -28,15 +28,15 @@ pub enum Token {
     Nil,         // #28
     IsNil,       // #29
     // #30-31 is syntax sugar
-    Draw,          // #32
-    Checkerboard,  // #33
-    MultiDraw,     // #34
-    ModList,       // #35 - ???
-    Send2,         // #36 - ???
+    Draw,         // #32
+    Checkerboard, // #33
+    MultiDraw,    // #34
+    // #35 - modlist is just a mod on lists
+    // #36 - send(0) is an example
     If0,           // #37
-    Interact,      // #38-39 - ???
-    StatelessDraw, // #40 - ???
-    StatefulDraw,  // #41 - ???
+    Interact,      // #38-39
+    StatelessDraw, // #40
+    StatefulDraw,  // #41
     Galaxy,        // #42
 }
 
@@ -97,10 +97,8 @@ fn parse(text: &str) -> Vec<Token> {
                 "draw" => result.push(Token::Draw),
                 // Checkerboard, // #33
                 "multipledraw" => result.push(Token::MultiDraw),
-                // ModList, // #35 - ???
-                // Send2, // #36 - ???
                 "if0" => result.push(Token::If0),
-                // Interact, // #38-39 - ???
+                "interact" => result.push(Token::Interact),
                 // StatelessDraw, // #40 - ???
                 // StatefulDraw, // #41 - ???
                 // Galaxy, // #42

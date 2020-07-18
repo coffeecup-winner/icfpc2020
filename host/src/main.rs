@@ -72,7 +72,8 @@ fn main() -> io::Result<()> {
     } else {
         let mut state = State::new();
         state.interpret(parse_line("statelessdraw = ap ap c ap ap b b ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c ap ap b cons ap ap c cons nil nil"));
-        run_interaction(state, "statelessdraw");
+        let p = run_interaction(state, "statelessdraw");
+        println!("Result: {:#?}", p);
     }
     Ok(())
 }
