@@ -137,29 +137,29 @@ impl State {
 
     pub fn eval(&mut self, var: Var) -> Value {
         let v = self.vars.get(&var).unwrap().clone();
-        self.eval_value(v)
+        self.eval_value(v, true)
     }
 
-    pub fn eval_value(&mut self, val: Value) -> Value {
+    pub fn eval_value(&self, val: Value, lazy: bool) -> Value {
         // println!("eval_value: {:?}", val);
         match val {
-            Value::Var(v) => self.eval_value(self.vars.get(&v).unwrap().clone()),
+            Value::Var(v) => self.eval_value(self.vars.get(&v).unwrap().clone(), lazy),
             Value::Number(_) => val,
             Value::Signal(_) => val,
             Value::Picture(_) => val,
             Value::BuiltIn(_) => val,
             Value::Apply(f, arg) => {
-                let e_f = self.eval_value(*f);
+                let e_f = self.eval_value(*f, lazy);
                 match e_f {
                     Value::BuiltIn(BuiltIn::Inc) => {
-                        if let Value::Number(n) = self.eval_value(*arg) {
+                        if let Value::Number(n) = self.eval_value(*arg, lazy) {
                             Value::Number(n + 1)
                         } else {
                             panic!("Invalid argument for `inc`");
                         }
                     }
                     Value::BuiltIn(BuiltIn::Dec) => {
-                        if let Value::Number(n) = self.eval_value(*arg) {
+                        if let Value::Number(n) = self.eval_value(*arg, lazy) {
                             Value::Number(n - 1)
                         } else {
                             panic!("Invalid argument for `dec`");
@@ -167,8 +167,8 @@ impl State {
                     }
                     Value::BuiltIn(BuiltIn::Add) => Value::Partial0(PartialAp::Add_0, arg),
                     Value::Partial0(PartialAp::Add_0, arg0) => {
-                        if let Value::Number(b) = self.eval_value(*arg) {
-                            if let Value::Number(a) = self.eval_value(*arg0) {
+                        if let Value::Number(b) = self.eval_value(*arg, lazy) {
+                            if let Value::Number(a) = self.eval_value(*arg0, lazy) {
                                 Value::Number(a + b)
                             } else {
                                 panic!("Invalid argument for `add`");
@@ -179,8 +179,8 @@ impl State {
                     }
                     Value::BuiltIn(BuiltIn::Mul) => Value::Partial0(PartialAp::Mul_0, arg),
                     Value::Partial0(PartialAp::Mul_0, arg0) => {
-                        if let Value::Number(b) = self.eval_value(*arg) {
-                            if let Value::Number(a) = self.eval_value(*arg0) {
+                        if let Value::Number(b) = self.eval_value(*arg, lazy) {
+                            if let Value::Number(a) = self.eval_value(*arg0, lazy) {
                                 Value::Number(a * b)
                             } else {
                                 panic!("Invalid argument for `mul`");
@@ -191,8 +191,8 @@ impl State {
                     }
                     Value::BuiltIn(BuiltIn::Div) => Value::Partial0(PartialAp::Div_0, arg),
                     Value::Partial0(PartialAp::Div_0, arg0) => {
-                        if let Value::Number(b) = self.eval_value(*arg) {
-                            if let Value::Number(a) = self.eval_value(*arg0) {
+                        if let Value::Number(b) = self.eval_value(*arg, lazy) {
+                            if let Value::Number(a) = self.eval_value(*arg0, lazy) {
                                 Value::Number(a / b)
                             } else {
                                 panic!("Invalid argument for `div`");
@@ -203,8 +203,8 @@ impl State {
                     }
                     Value::BuiltIn(BuiltIn::Eq) => Value::Partial0(PartialAp::Eq_0, arg),
                     Value::Partial0(PartialAp::Eq_0, arg0) => {
-                        if let Value::Number(b) = self.eval_value(*arg) {
-                            if let Value::Number(a) = self.eval_value(*arg0) {
+                        if let Value::Number(b) = self.eval_value(*arg, lazy) {
+                            if let Value::Number(a) = self.eval_value(*arg0, lazy) {
                                 if a == b {
                                     Value::BuiltIn(BuiltIn::True)
                                 } else {
@@ -219,8 +219,8 @@ impl State {
                     }
                     Value::BuiltIn(BuiltIn::Lt) => Value::Partial0(PartialAp::Lt_0, arg),
                     Value::Partial0(PartialAp::Lt_0, arg0) => {
-                        if let Value::Number(b) = self.eval_value(*arg) {
-                            if let Value::Number(a) = self.eval_value(*arg0) {
+                        if let Value::Number(b) = self.eval_value(*arg, lazy) {
+                            if let Value::Number(a) = self.eval_value(*arg0, lazy) {
                                 if a < b {
                                     Value::BuiltIn(BuiltIn::True)
                                 } else {
@@ -234,14 +234,14 @@ impl State {
                         }
                     }
                     Value::BuiltIn(BuiltIn::Mod) => {
-                        match self.eval_value(*arg) {
+                        match self.eval_value(*arg, lazy) {
                             Value::Number(n) => Value::Signal(modem::mod_num(n)),
                             // TODO: lists
                             _ => panic!("Invalid argument for `mod`"),
                         }
                     }
                     Value::BuiltIn(BuiltIn::Dem) => {
-                        if let Value::Signal(s) = self.eval_value(*arg) {
+                        if let Value::Signal(s) = self.eval_value(*arg, lazy) {
                             let list = modem::dem_list(&s);
                             panic!("TODO: demodulate {:?}", list);
                         } else {
@@ -249,7 +249,7 @@ impl State {
                         }
                     }
                     Value::BuiltIn(BuiltIn::Neg) => {
-                        if let Value::Number(n) = self.eval_value(*arg) {
+                        if let Value::Number(n) = self.eval_value(*arg, lazy) {
                             Value::Number(-n)
                         } else {
                             panic!("Invalid argument for `neg`");
@@ -260,49 +260,124 @@ impl State {
                         Value::Partial1(PartialAp::S_1, arg0, arg)
                     }
                     Value::Partial1(PartialAp::S_1, arg0, arg1) => {
-                        self.eval_value(Value::Apply(
-                            Box::new(Value::Apply(arg0, arg.clone())), // If costly, use Rc
-                            Box::new(Value::Apply(arg1, arg)),
-                        ))
+                        let (e_arg0, e_arg1, e_arg2) = if lazy {
+                            (arg0, arg1, arg)
+                        } else {
+                            (
+                                Box::new(self.eval_value(*arg0, lazy)),
+                                Box::new(self.eval_value(*arg1, lazy)),
+                                Box::new(self.eval_value(*arg, lazy)),
+                            )
+                        };
+                        let (e_ap0, e_ap1) = if lazy {
+                            (
+                                Value::Apply(e_arg0, e_arg2.clone()), // If costly, use Rc
+                                Value::Apply(e_arg1, e_arg2),
+                            )
+                        } else {
+                            (
+                                self.eval_value(Value::Apply(e_arg0, e_arg2.clone()), lazy), // If costly, use Rc
+                                self.eval_value(Value::Apply(e_arg1, e_arg2), lazy),
+                            )
+                        };
+                        self.eval_value(Value::Apply(Box::new(e_ap0), Box::new(e_ap1)), lazy)
                     }
                     Value::BuiltIn(BuiltIn::C) => Value::Partial0(PartialAp::C_0, arg),
                     Value::Partial0(PartialAp::C_0, arg0) => {
                         Value::Partial1(PartialAp::C_1, arg0, arg)
                     }
                     Value::Partial1(PartialAp::C_1, arg0, arg1) => {
-                        self.eval_value(Value::Apply(Box::new(Value::Apply(arg0, arg)), arg1))
+                        let (e_arg0, e_arg1, e_arg2) = if lazy {
+                            (arg0, arg1, arg)
+                        } else {
+                            (
+                                Box::new(self.eval_value(*arg0, lazy)),
+                                Box::new(self.eval_value(*arg1, lazy)),
+                                Box::new(self.eval_value(*arg, lazy)),
+                            )
+                        };
+                        let e_ap0 = if lazy {
+                            Value::Apply(e_arg0, e_arg2)
+                        } else {
+                            self.eval_value(Value::Apply(e_arg0, e_arg2), lazy)
+                        };
+                        self.eval_value(Value::Apply(Box::new(e_ap0), e_arg1), lazy)
                     }
                     Value::BuiltIn(BuiltIn::B) => Value::Partial0(PartialAp::B_0, arg),
                     Value::Partial0(PartialAp::B_0, arg0) => {
                         Value::Partial1(PartialAp::B_1, arg0, arg)
                     }
                     Value::Partial1(PartialAp::B_1, arg0, arg1) => {
-                        self.eval_value(Value::Apply(arg0, Box::new(Value::Apply(arg1, arg))))
+                        let (e_arg0, e_arg1, e_arg2) = if lazy {
+                            (arg0, arg1, arg)
+                        } else {
+                            (
+                                Box::new(self.eval_value(*arg0, lazy)),
+                                Box::new(self.eval_value(*arg1, lazy)),
+                                Box::new(self.eval_value(*arg, lazy)),
+                            )
+                        };
+                        let e_ap0 = if lazy {
+                            Value::Apply(e_arg1, e_arg2)
+                        } else {
+                            self.eval_value(Value::Apply(e_arg1, e_arg2), lazy)
+                        };
+                        self.eval_value(Value::Apply(e_arg0, Box::new(e_ap0)), lazy)
                     }
                     Value::BuiltIn(BuiltIn::True) => Value::Partial0(PartialAp::True_0, arg),
-                    Value::Partial0(PartialAp::True_0, arg0) => self.eval_value(*arg0),
+                    Value::Partial0(PartialAp::True_0, arg0) => self.eval_value(*arg0, lazy),
                     Value::BuiltIn(BuiltIn::False) => Value::Partial0(PartialAp::False_0, arg),
-                    Value::Partial0(PartialAp::False_0, _) => self.eval_value(*arg),
+                    Value::Partial0(PartialAp::False_0, _) => self.eval_value(*arg, lazy),
                     Value::BuiltIn(BuiltIn::Pwr2) => {
-                        if let Value::Number(n) = self.eval_value(*arg) {
+                        if let Value::Number(n) = self.eval_value(*arg, lazy) {
                             Value::Number((2 as i64).pow(n as u32))
                         } else {
                             panic!("Invalid argument for `pwr2`");
                         }
                     }
-                    Value::BuiltIn(BuiltIn::I) => self.eval_value(*arg),
+                    Value::BuiltIn(BuiltIn::I) => self.eval_value(*arg, lazy),
                     Value::BuiltIn(BuiltIn::Cons) => Value::Partial0(PartialAp::Cons_0, arg),
                     Value::Partial0(PartialAp::Cons_0, arg0) => {
                         Value::Partial1(PartialAp::Cons_1, arg0, arg)
                     }
                     Value::Partial1(PartialAp::Cons_1, arg0, arg1) => {
-                        self.eval_value(Value::Apply(Box::new(Value::Apply(arg, arg0)), arg1))
+                        let (e_arg0, e_arg1, e_arg2) = if lazy {
+                            (arg0, arg1, arg)
+                        } else {
+                            (
+                                Box::new(self.eval_value(*arg0, lazy)),
+                                Box::new(self.eval_value(*arg1, lazy)),
+                                Box::new(self.eval_value(*arg, lazy)),
+                            )
+                        };
+                        let e_ap0 = if lazy {
+                            Value::Apply(e_arg2, e_arg0)
+                        } else {
+                            self.eval_value(Value::Apply(e_arg2, e_arg0), lazy)
+                        };
+                        self.eval_value(Value::Apply(Box::new(e_ap0), e_arg1), lazy)
                     }
                     Value::BuiltIn(BuiltIn::Head) => {
-                        self.eval_value(Value::Apply(arg, Box::new(Value::BuiltIn(BuiltIn::True))))
+                        let e_arg0 = if lazy {
+                            arg
+                        } else {
+                            Box::new(self.eval_value(*arg, lazy))
+                        };
+                        self.eval_value(
+                            Value::Apply(e_arg0, Box::new(Value::BuiltIn(BuiltIn::True))),
+                            lazy,
+                        )
                     }
                     Value::BuiltIn(BuiltIn::Tail) => {
-                        self.eval_value(Value::Apply(arg, Box::new(Value::BuiltIn(BuiltIn::False))))
+                        let e_arg0 = if lazy {
+                            arg
+                        } else {
+                            Box::new(self.eval_value(*arg, lazy))
+                        };
+                        self.eval_value(
+                            Value::Apply(e_arg0, Box::new(Value::BuiltIn(BuiltIn::False))),
+                            lazy,
+                        )
                     }
                     Value::BuiltIn(BuiltIn::Nil) => Value::BuiltIn(BuiltIn::True),
                     Value::BuiltIn(BuiltIn::IsNil) => {
@@ -319,10 +394,10 @@ impl State {
                         Value::Partial1(PartialAp::If0_1, arg0, arg)
                     }
                     Value::Partial1(PartialAp::If0_1, arg0, arg1) => {
-                        if let Value::Number(0) = self.eval_value(*arg0) {
-                            self.eval_value(*arg1)
+                        if let Value::Number(0) = self.eval_value(*arg0, lazy) {
+                            self.eval_value(*arg1, lazy)
                         } else {
-                            self.eval_value(*arg)
+                            self.eval_value(*arg, lazy)
                         }
                     }
                     Value::BuiltIn(BuiltIn::Interact) => {
@@ -332,23 +407,73 @@ impl State {
                         Value::Partial1(PartialAp::Interact_1, arg0, arg)
                     }
                     Value::Partial1(PartialAp::Interact_1, arg0, arg1) => {
-                        self.eval_value(Value::Apply(
-                            Box::new(Value::Apply(
-                                Box::new(Value::BuiltIn(BuiltIn::F38)),
-                                arg0.clone(),
-                            )),
-                            Box::new(Value::Apply(Box::new(Value::Apply(arg0, arg1)), arg)),
-                        ))
+                        let (e_arg0, e_arg1, e_arg2) = if lazy {
+                            (arg0, arg1, arg)
+                        } else {
+                            (
+                                Box::new(self.eval_value(*arg0, lazy)),
+                                Box::new(self.eval_value(*arg1, lazy)),
+                                Box::new(self.eval_value(*arg, lazy)),
+                            )
+                        };
+                        let (e_ap0, e_ap1) = if lazy {
+                            (
+                                Value::Apply(
+                                    Box::new(Value::BuiltIn(BuiltIn::F38)),
+                                    e_arg0.clone(),
+                                ),
+                                Value::Apply(Box::new(Value::Apply(e_arg0, e_arg1)), e_arg2),
+                            )
+                        } else {
+                            (
+                                self.eval_value(
+                                    Value::Apply(
+                                        Box::new(Value::BuiltIn(BuiltIn::F38)),
+                                        e_arg0.clone(),
+                                    ),
+                                    lazy,
+                                ),
+                                self.eval_value(
+                                    Value::Apply(
+                                        Box::new(
+                                            self.eval_value(Value::Apply(e_arg0, e_arg1), lazy),
+                                        ),
+                                        e_arg2,
+                                    ),
+                                    lazy,
+                                ),
+                            )
+                        };
+                        self.eval_value(Value::Apply(Box::new(e_ap0), Box::new(e_ap1)), lazy)
                     }
                     Value::BuiltIn(BuiltIn::F38) => Value::Partial0(PartialAp::F38_0, arg),
                     Value::Partial0(PartialAp::F38_0, arg0) => {
-                        self.eval_value(Self::construct_f38_builtin(arg0, arg))
+                        let e_arg0 = Box::new(self.eval_value(*arg0, lazy));
+                        let e_arg1 = Box::new(self.eval_value(*arg, lazy));
+                        self.eval_value(Self::construct_f38_builtin(e_arg0, e_arg1), lazy)
                     }
                     f => panic!("!{:?}", f),
                 }
             }
-            Value::Partial0(_, _) => panic!(),
-            Value::Partial1(_, _, _) => panic!(),
+            Value::Partial0(p, arg0) => {
+                let e_arg0 = if lazy {
+                    arg0
+                } else {
+                    Box::new(self.eval_value(*arg0, lazy))
+                };
+                Value::Partial0(p, e_arg0)
+            }
+            Value::Partial1(p, arg0, arg1) => {
+                let (e_arg0, e_arg1) = if lazy {
+                    (arg0, arg1)
+                } else {
+                    (
+                        Box::new(self.eval_value(*arg0, lazy)),
+                        Box::new(self.eval_value(*arg1, lazy)),
+                    )
+                };
+                Value::Partial1(p, e_arg0, e_arg1)
+            }
         }
     }
 
@@ -366,7 +491,7 @@ impl State {
                     b(Apply(
                         b(BuiltIn(Cons)),
                         b(Apply(
-                            b(BuiltIn(I)),
+                            b(BuiltIn(I)), // TODO: modem
                             b(Apply(
                                 b(BuiltIn(Head)),
                                 b(Apply(b(BuiltIn(Tail)), arg1.clone())),
@@ -395,7 +520,7 @@ impl State {
                 b(Apply(
                     b(Apply(b(BuiltIn(Interact)), arg0)),
                     b(Apply(
-                        b(BuiltIn(I)),
+                        b(BuiltIn(I)), // TODO: modem
                         b(Apply(
                             b(BuiltIn(Head)),
                             b(Apply(b(BuiltIn(Tail)), arg1.clone())),
@@ -413,9 +538,13 @@ impl State {
         )
     }
 
-    fn eval_multidraw(&mut self, val: Value) -> Value {
-        // println!("multidraw: {:?}", val);
-        let val = self.eval_value(val);
+    fn eval_multidraw(&self, val: Value) -> Value {
+        // println!("multidraw lazy: {:?}", val);
+        let val = self.eval_value(val, false);
+        // println!("multidraw eager: {:?}", val);
+        if Value::BuiltIn(BuiltIn::Nil) == val {
+            return val;
+        }
         if let Value::Partial1(PartialAp::Cons_1, arg0, arg1) = val {
             return Value::Apply(
                 Box::new(Value::Apply(
@@ -437,15 +566,15 @@ impl State {
                     );
                 }
             }
-        } else if Value::BuiltIn(BuiltIn::Nil) == val {
-            return val;
         }
         panic!("Invalid multidraw argument")
     }
 
     fn eval_draw(&self, val: Value) -> Picture {
+        // println!("eval_draw: {:?}", val);
         let mut picture = Picture::new();
         let mut list = self.eval_nested_list(val);
+        // println!("eval_draw: {:?}", list);
         loop {
             // we expect a list of pairs here
             match list {
