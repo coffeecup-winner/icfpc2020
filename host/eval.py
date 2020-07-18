@@ -199,7 +199,9 @@ def galaxy_lex_word(word):
 
 def galaxy_eval(tokens):
     stack = []
+
     for token in reversed(tokens):
+        logger.debug("stack: %s", stack)
         if not galaxy_callable(token):
             logger.debug("pushing %s", token)
             stack.append(token)
@@ -217,6 +219,7 @@ def galaxy_eval(tokens):
             logger.debug("stopped because of an empty stack, leaving curried: %s", res)
 
         stack.append(res)
+
 
     if len(stack) != 1:
         raise RuntimeError("invalid exit stack state", stack)
@@ -240,7 +243,7 @@ def galaxy_repl(line_stream):
 
         if var_name is not None:
             Symbol.set_value(var_name, eval_result)
-        logger.info("stored into %s", var_name)
+            logger.info("stored into %s", var_name)
 
 
 def main(args):
