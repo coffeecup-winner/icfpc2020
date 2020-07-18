@@ -22,6 +22,8 @@ pub enum PartialAp {
     B_0,
     True_0,
     False_0,
+    Cons_0,
+    Cons_1,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -59,6 +61,7 @@ pub enum BuiltIn {
     Cons,  // #25
     Head,  // #26
     Tail,  // #27
+    Nil,   // #28
     IsNil, // #29
     // #30 - ???
     // #31 - ???
@@ -219,6 +222,27 @@ impl State {
                         }
                     }
                     Value::BuiltIn(BuiltIn::I) => self.eval_value(*arg),
+                    Value::BuiltIn(BuiltIn::Cons) => Value::Partial0(PartialAp::Cons_0, arg),
+                    Value::Partial0(PartialAp::Cons_0, arg0) => {
+                        Value::Partial1(PartialAp::Cons_1, arg0, arg)
+                    }
+                    Value::Partial1(PartialAp::Cons_1, arg0, arg1) => {
+                        self.eval_value(Value::Apply(Box::new(Value::Apply(arg, arg0)), arg1))
+                    }
+                    Value::BuiltIn(BuiltIn::Head) => {
+                        self.eval_value(Value::Apply(arg, Box::new(Value::BuiltIn(BuiltIn::True))))
+                    }
+                    Value::BuiltIn(BuiltIn::Tail) => {
+                        self.eval_value(Value::Apply(arg, Box::new(Value::BuiltIn(BuiltIn::False))))
+                    }
+                    Value::BuiltIn(BuiltIn::Nil) => Value::BuiltIn(BuiltIn::True),
+                    Value::BuiltIn(BuiltIn::IsNil) => {
+                        if let Value::BuiltIn(BuiltIn::Nil) = *arg {
+                            Value::BuiltIn(BuiltIn::True)
+                        } else {
+                            Value::BuiltIn(BuiltIn::False)
+                        }
+                    }
                     f => panic!("!{:?}", f),
                 }
             }
@@ -244,7 +268,7 @@ impl State {
                 Token::Number(n) => stack.push(Value::Number(n)),
                 Token::True => stack.push(Value::BuiltIn(BuiltIn::True)),
                 Token::False => stack.push(Value::BuiltIn(BuiltIn::False)),
-                Token::Nil => stack.push(Value::List(LinkedList::new())),
+                Token::Nil => stack.push(Value::BuiltIn(BuiltIn::Nil)),
 
                 Token::Inc => stack.push(Value::BuiltIn(BuiltIn::Inc)),
                 Token::Dec => stack.push(Value::BuiltIn(BuiltIn::Dec)),

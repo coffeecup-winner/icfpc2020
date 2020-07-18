@@ -159,3 +159,22 @@ PRINT i
 ap i 1 == 1
 ap i i == i
 ap i ap add 1 == ap add 1
+
+PRINT cons
+ap ap ap cons 1 2 add == 3
+
+PRINT car
+ap car ap ap cons 1 nil == 1
+ap car f == ap f t
+
+PRINT cdr
+ap cdr ap ap cons 1 nil == nil
+ap cdr t == ap t f
+
+PRINT nil
+ap nil inc == t
+ap nil 42 == t
+
+PRINT isnil
+ap isnil nil == t
+ap isnil ap ap cons 1 nil == f
