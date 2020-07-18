@@ -1,7 +1,8 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum NestedList {
+    Nil,
+    Cons(Box<NestedList>, Box<NestedList>),
     Number(i64),
-    List(Vec<NestedList>),
 }
 
 pub fn mod_num(number: i64) -> Vec<bool> {
@@ -57,16 +58,7 @@ fn modulate(signed_num: i64, res: &mut Vec<bool>) -> () {
     }
 }
 
-fn demodulate(iter: &mut Iterator<Item = bool>) -> Result<i64, ()> {
-    let negative = match iter.next() {
-        Some(val) => val,
-        None => return Err(()),
-    };
-    match iter.next() {
-        Some(val) => val,
-        None => return Err(()),
-    };
-
+fn demodulate_value(negative: bool, iter: &mut Iterator<Item = bool>) -> Result<i64, ()> {
     let used_nibbles = 'outer: loop {
         for i in 0u64.. {
             if !match iter.next() {
@@ -94,11 +86,16 @@ fn demodulate(iter: &mut Iterator<Item = bool>) -> Result<i64, ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use NestedList::*;
 
     fn v(s: &str) -> Vec<bool> {
         s.chars()
             .map(|c| if c == '1' { true } else { false })
             .collect()
+    }
+
+    fn cons(a: NestedList, b: NestedList) -> NestedList {
+        Cons(Box::new(a), Box::new(b))
     }
 
     #[test]
@@ -114,5 +111,18 @@ mod tests {
         assert_eq!(mod_num(-255), v("1011011111111"));
         assert_eq!(mod_num(256), v("011110000100000000"));
         assert_eq!(mod_num(-256), v("101110000100000000"));
+    }
+
+    #[test]
+    fn test_mod_list() {
+        assert_eq!(mod_list(&Nil), v("00"));
+        assert_eq!(mod_list(&cons(Nil, Nil)), v("110000"));
+        assert_eq!(mod_list(&cons(Number(0), Nil)), v("1101000"));
+        let one_two_nil = v("110110000101100010");
+        assert_eq!(mod_list(&cons(Number(1), Number(2))), one_two_nil);
+        assert_eq!(mod_list(&cons(Number(1), cons(Number(2), Nil))), one_two_nil);
+        let second_item = cons(Number(2), cons(Number(3), Nil));
+        let woosh = cons(Number(1), cons(second_item, cons(Number(4), Nil)));;
+        assert_eq!(mod_list(&woosh), v("110110000111110110001011011000110011011001000"));
     }
 }
