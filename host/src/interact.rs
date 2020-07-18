@@ -32,6 +32,6 @@ pub fn run_interaction(mut state: State, protocol: &str, x: i64, y: i64) -> Vec<
             Token::Var(var_result),
         ],
     });
-    let v = state.eval(var_picture.clone());
+    let v = state.eval(var_picture);
     state.eval_picture_list(v)
 }

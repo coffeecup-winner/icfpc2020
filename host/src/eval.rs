@@ -56,9 +56,9 @@ impl std::fmt::Display for Picture {
         for y in 0..self.height {
             for x in 0..self.width {
                 if self.points.contains(&Point { x, y }) {
-                    write!(f, "{}", "#")?;
+                    write!(f, "#")?;
                 } else {
-                    write!(f, "{}", " ")?;
+                    write!(f, " ")?;
                 }
             }
             if y != self.height - 1 {

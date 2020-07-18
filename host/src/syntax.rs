@@ -53,7 +53,7 @@ pub struct Stmt {
 }
 
 fn parse(text: &str) -> Vec<Token> {
-    let parts: Vec<&str> = text.split(" ").collect();
+    let parts: Vec<&str> = text.split(' ').collect();
     let mut new_item = false;
     let mut result = vec![];
     for s in parts {
@@ -102,15 +102,15 @@ fn parse(text: &str) -> Vec<Token> {
                 // StatelessDraw, // #40 - ???
                 // StatefulDraw, // #41 - ???
                 // Galaxy, // #42
-                s if s.starts_with(":") => result.push(Token::Var(Var::Temp(
-                    s.strip_prefix(":").unwrap().parse::<u32>().unwrap(),
+                s if s.starts_with(':') => result.push(Token::Var(Var::Temp(
+                    s.strip_prefix(':').unwrap().parse::<u32>().unwrap(),
                 ))),
                 s if s.chars().all(|c| c.is_ascii_digit())
-                    || s.starts_with("-") && s.chars().skip(1).all(|c| c.is_ascii_digit()) =>
+                    || s.starts_with('-') && s.chars().skip(1).all(|c| c.is_ascii_digit()) =>
                 {
                     result.push(Token::Number(s.parse::<i64>().unwrap()))
                 }
-                _ => panic!(format!("{}", s)),
+                _ => panic!("{}", s),
             }
         }
     }

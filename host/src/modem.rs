@@ -11,11 +11,11 @@ pub fn mod_list(list: &NestedList) -> Vec<bool> {
     res
 }
 
-pub fn dem_list(data: &Vec<bool>) -> NestedList {
+pub fn dem_list(data: &[bool]) -> NestedList {
     demodulate(&mut data.iter().copied()).unwrap()
 }
 
-fn modulate_value(signed_num: i64, res: &mut Vec<bool>) -> () {
+fn modulate_value(signed_num: i64, res: &mut Vec<bool>) {
     if signed_num >= 0 {
         res.push(false);
         res.push(true);
@@ -45,12 +45,12 @@ fn modulate_value(signed_num: i64, res: &mut Vec<bool>) -> () {
     let encoded_space = needed_nibbles * 4;
     for i in 0..encoded_space {
         // MSB first
-        let mask = 1u64 << encoded_space - 1 - i;
+        let mask = 1u64 << (encoded_space - 1 - i);
         res.push(num & mask != 0);
     }
 }
 
-fn modulate(val: &NestedList, res: &mut Vec<bool>) -> () {
+fn modulate(val: &NestedList, res: &mut Vec<bool>) {
     use NestedList::*;
 
     match val {

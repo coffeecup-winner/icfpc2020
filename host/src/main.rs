@@ -13,9 +13,9 @@ fn print_pictures(pics: &[Picture]) {
     if pics.len() == 1 {
         println!("{}", pics[0]);
     } else {
-        for i in 0..pics.len() {
+        for (i, p) in pics.iter().enumerate() {
             println!("Picture #{}", i);
-            println!("{}", pics[i]);
+            println!("{}", p);
         }
     }
 }
