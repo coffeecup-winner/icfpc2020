@@ -3,13 +3,7 @@ use hyper::{Client, Request, Method, Body, StatusCode};
 use std::env;
 use std::process;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let args: Vec<String> = env::args().collect();
-
-    let server_url = &args[1];
-    let player_key = &args[2];
-
+async fn request(server_url: &String, player_key: &String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
 
     let client = Client::new();
@@ -51,4 +45,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     Ok(())
+}
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let args: Vec<String> = env::args().collect();
+
+    let server_url = &args[1];
+    let player_key = &args[2];
+    request(server_url, player_key).await
 }
