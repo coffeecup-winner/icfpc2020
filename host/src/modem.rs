@@ -5,24 +5,10 @@ pub enum NestedList {
     Number(i64),
 }
 
-pub fn mod_num(number: i64) -> Vec<bool> {
-    let mut res: Vec<bool> = vec![];
-    modulate_value(number, &mut res);
-    res
-}
-
 pub fn mod_list(list: &NestedList) -> Vec<bool> {
     let mut res: Vec<bool> = vec![];
     modulate(list, &mut res);
     res
-}
-
-pub fn dem_num(data: &Vec<bool>) -> i64 {
-    use NestedList::*;
-    match demodulate(&mut data.iter().copied()).unwrap() {
-        Number(num) => num,
-        _ => panic!("`dem_num` demodulate returned an unexpected type (nil or cons)"),
-    }
 }
 
 pub fn dem_list(data: &Vec<bool>) -> NestedList {
@@ -127,6 +113,10 @@ mod tests {
     use super::*;
     use NestedList::*;
 
+    fn n(num: i64) -> NestedList {
+        NestedList::Number(num)
+    }
+
     fn v(s: &str) -> Vec<bool> {
         s.chars()
             .map(|c| if c == '1' { true } else { false })
@@ -139,17 +129,17 @@ mod tests {
 
     #[test]
     fn test_mod_num() {
-        assert_eq!(mod_num(0), v("010"));
-        assert_eq!(mod_num(1), v("01100001"));
-        assert_eq!(mod_num(-1), v("10100001"));
-        assert_eq!(mod_num(2), v("01100010"));
-        assert_eq!(mod_num(-2), v("10100010"));
-        assert_eq!(mod_num(16), v("0111000010000"));
-        assert_eq!(mod_num(-16), v("1011000010000"));
-        assert_eq!(mod_num(255), v("0111011111111"));
-        assert_eq!(mod_num(-255), v("1011011111111"));
-        assert_eq!(mod_num(256), v("011110000100000000"));
-        assert_eq!(mod_num(-256), v("101110000100000000"));
+        assert_eq!(mod_list(&n(0)), v("010"));
+        assert_eq!(mod_list(&n(1)), v("01100001"));
+        assert_eq!(mod_list(&n(-1)), v("10100001"));
+        assert_eq!(mod_list(&n(2)), v("01100010"));
+        assert_eq!(mod_list(&n(-2)), v("10100010"));
+        assert_eq!(mod_list(&n(16)), v("0111000010000"));
+        assert_eq!(mod_list(&n(-16)), v("1011000010000"));
+        assert_eq!(mod_list(&n(255)), v("0111011111111"));
+        assert_eq!(mod_list(&n(-255)), v("1011011111111"));
+        assert_eq!(mod_list(&n(256)), v("011110000100000000"));
+        assert_eq!(mod_list(&n(-256)), v("101110000100000000"));
     }
 
     #[test]

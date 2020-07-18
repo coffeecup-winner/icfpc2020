@@ -106,6 +106,7 @@ pub enum BuiltIn {
     Galaxy,        // #42
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PartialAp {
     Add_0,
@@ -260,13 +261,9 @@ impl State {
                             panic!("Invalid argument for `lt`");
                         }
                     }
-                    Value::BuiltIn(BuiltIn::Mod) => {
-                        match self.eval_value(*arg, lazy) {
-                            Value::Number(n) => Value::Signal(modem::mod_num(n)),
-                            // TODO: lists
-                            _ => panic!("Invalid argument for `mod`"),
-                        }
-                    }
+                    Value::BuiltIn(BuiltIn::Mod) => Value::Signal(modem::mod_list(
+                        &self.eval_nested_list(self.eval_value(*arg, false)),
+                    )),
                     Value::BuiltIn(BuiltIn::Dem) => {
                         if let Value::Signal(s) = self.eval_value(*arg, lazy) {
                             let list = modem::dem_list(&s);
@@ -631,12 +628,10 @@ impl State {
 
     fn eval_nested_list(&self, val: Value) -> NestedList {
         match val {
-            Value::Partial1(PartialAp::Cons_1, head, tail) => {
-                NestedList::Cons(
-                    Box::new(self.eval_nested_list(*head)),
-                    Box::new(self.eval_nested_list(*tail)),
-                )
-            }
+            Value::Partial1(PartialAp::Cons_1, head, tail) => NestedList::Cons(
+                Box::new(self.eval_nested_list(*head)),
+                Box::new(self.eval_nested_list(*tail)),
+            ),
             Value::Apply(f1, tail) => {
                 if let Value::Apply(f0, head) = *f1 {
                     if let Value::BuiltIn(BuiltIn::Cons) = *f0 {
