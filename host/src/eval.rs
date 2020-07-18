@@ -1,4 +1,4 @@
-use std::collections::{HashMap, LinkedList};
+use std::collections::HashMap;
 
 use crate::modem;
 use crate::syntax::{Stmt, Token, Var};
@@ -31,7 +31,6 @@ pub enum PartialAp {
 pub enum Value {
     Var(u32),
     Number(i64),
-    List(LinkedList<Value>),
     Signal(Vec<bool>), // used with modulate / demodulate
     BuiltIn(BuiltIn),
     Apply(Box<Value>, Box<Value>),
@@ -94,7 +93,6 @@ impl State {
         match val {
             Value::Var(v) => self.eval_value(self.vars.get(&Var::Temp(v)).unwrap().clone()),
             Value::Number(_) => val,
-            Value::List(_) => val,
             Value::Signal(_) => val,
             Value::BuiltIn(_) => val,
             Value::Apply(f, arg) => {
@@ -182,6 +180,12 @@ impl State {
                             panic!("Invalid argument for `lt`");
                         }
                     }
+                    Value::BuiltIn(BuiltIn::Mod) => {
+                        match self.eval_value(*arg) {
+                            Value::Number(n) => Value::Signal(modem::mod_num(n)),
+                            _ => panic!("Invalid argument for `mod`"),
+                        }
+                    }
                     Value::BuiltIn(BuiltIn::Neg) => {
                         if let Value::Number(n) = self.eval_value(*arg) {
                             Value::Number(-n)
@@ -245,14 +249,6 @@ impl State {
                         } else {
                             Value::BuiltIn(BuiltIn::False)
                         }
-                    }
-                    Value::BuiltIn(BuiltIn::Mod) => {
-                        let number = match self.eval_value(*arg) {
-                            Value::Number(n) => n,
-                            _ => panic!("Invalid argument for `mod`"),
-                        };
-
-                        Value::Signal(modem::mod_num(number))
                     }
                     f => panic!("!{:?}", f),
                 }
