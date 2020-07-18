@@ -124,6 +124,8 @@ pub enum PartialAp {
     False_0,
     Cons_0,
     Cons_1,
+    If0_0,
+    If0_1,
 }
 
 impl State {
@@ -310,6 +312,17 @@ impl State {
                     }
                     Value::BuiltIn(BuiltIn::Draw) => Value::Picture(self.eval_draw(*arg)),
                     Value::BuiltIn(BuiltIn::MultiDraw) => self.eval_multidraw(*arg),
+                    Value::BuiltIn(BuiltIn::If0) => Value::Partial0(PartialAp::If0_0, arg),
+                    Value::Partial0(PartialAp::If0_0, arg0) => {
+                        Value::Partial1(PartialAp::If0_1, arg0, arg)
+                    }
+                    Value::Partial1(PartialAp::If0_1, arg0, arg1) => {
+                        if let Value::Number(0) = self.eval_value(*arg0) {
+                            *arg1
+                        } else {
+                            *arg
+                        }
+                    }
                     f => panic!("!{:?}", f),
                 }
             }

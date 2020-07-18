@@ -99,7 +99,7 @@ fn parse(text: &str) -> Vec<Token> {
                 "multipledraw" => result.push(Token::MultiDraw),
                 // ModList, // #35 - ???
                 // Send2, // #36 - ???
-                // If0, // #37
+                "if0" => result.push(Token::If0),
                 // Interact, // #38-39 - ???
                 // StatelessDraw, // #40 - ???
                 // StatefulDraw, // #41 - ???
