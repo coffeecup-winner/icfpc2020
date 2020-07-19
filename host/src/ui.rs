@@ -88,17 +88,18 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
 
     let protocol = protocol.expect("Protocol was not defined in the instruction file");
 
-    const VIEWPORT_WIDTH: u32 = 800;
-    const VIEWPORT_HEIGHT: u32 = 600;
+    const VIEWPORT_WIDTH: u32 = 1024;
+    const VIEWPORT_HEIGHT: u32 = 768;
     const VIEWPORT_CENTER_X: i32 = (VIEWPORT_WIDTH / 2) as i32;
     const VIEWPORT_CENTER_Y: i32 = (VIEWPORT_HEIGHT / 2) as i32;
     const MAX_SCALE: i32 = 10;
     let COLORS: Vec<(u8, u8, u8)> = vec![
         (39, 39, 39),
-        (116, 116, 116),
+        (17, 100, 102),
         (255, 101, 47),
         (255, 228, 0),
         (20, 167, 108),
+        (209, 232, 226),
     ];
 
     let app = App::default();
@@ -144,7 +145,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
             }
             let mut blender = Blender::new(0.7);
             for (i, p) in pics.iter().enumerate() {
-                let (r, g, b) = if i >= COLORS.len() {
+                let (r, g, b) = if i + 1 >= COLORS.len() {
                     println!("WARNING: not enough colors");
                     (255, 0, 0)
                 } else {

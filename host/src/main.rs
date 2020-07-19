@@ -80,7 +80,7 @@ fn run() -> io::Result<()> {
 }
 
 // Remove later if not needed
-const THREAD_STACK_SIZE: usize = 4 * 1024 * 1024;
+const THREAD_STACK_SIZE: usize = 16 * 1024 * 1024;
 
 fn main() -> io::Result<()> {
     let child_thread = thread::Builder::new()
