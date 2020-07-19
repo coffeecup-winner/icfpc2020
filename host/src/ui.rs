@@ -166,7 +166,6 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     window.end();
     window.show();
 
-    let (mut last_x, mut last_y) = (-1, -1);
     let mut first_coords = if &protocol == "galaxy" {
         Some((0, 0))
     } else {
@@ -202,26 +201,21 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                     };
                 }
                 // Click
-                if last_x != x || last_y != y {
-                    println!("Clicked on ({}, {})", x, y);
-                    let (new_state, pics) = run_interaction(
-                        &mut state,
-                        &protocol,
-                        interaction_state.clone(),
-                        x as i64,
-                        y as i64,
-                    );
-                    prev_state = interaction_state;
-                    prev_coords = (x, y);
-                    interaction_state = new_state;
+                println!("Clicked on ({}, {})", x, y);
+                let (new_state, pics) = run_interaction(
+                    &mut state,
+                    &protocol,
+                    interaction_state.clone(),
+                    x as i64,
+                    y as i64,
+                );
+                prev_state = interaction_state;
+                prev_coords = (x, y);
+                interaction_state = new_state;
 
-                    pics_data.borrow_mut().vec = pics;
+                pics_data.borrow_mut().vec = pics;
 
-                    last_x = x;
-                    last_y = y;
-
-                    window.redraw();
-                }
+                window.redraw();
             }
             fltk::enums::Event::KeyUp => match event_key() {
                 fltk::enums::Key::Enter => {
@@ -287,9 +281,6 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                         interaction_state = new_state;
 
                         pics_data.borrow_mut().vec = pics;
-
-                        last_x = x;
-                        last_y = y;
 
                         window.redraw();
                     } else {
