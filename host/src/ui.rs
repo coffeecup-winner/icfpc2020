@@ -11,7 +11,22 @@ struct Data {
     vec: Vec<Picture>,
 }
 
-pub fn ui_main() -> std::io::Result<()> {
+pub fn ui_main(file: String) -> std::io::Result<()> {
+    let mut state = State::new();
+    let mut protocol = None;
+    // Skip the "INTERACTIVE" line
+    for line in file.lines().skip(1) {
+        if line.is_empty() {
+        } else if let Some(l) = line.strip_prefix("PROTOCOL ") {
+            println!("Protocol: {}", l);
+            protocol = Some(l.to_string());
+        } else {
+            state.interpret(parse_line(line));
+        }
+    }
+
+    let protocol = protocol.expect("Protocol was not defined in the instruction file");
+
     const VIEWPORT_WIDTH: u32 = 800;
     const VIEWPORT_HEIGHT: u32 = 600;
 
@@ -44,9 +59,6 @@ pub fn ui_main() -> std::io::Result<()> {
     window.end();
     window.show();
 
-    let mut state = State::new();
-    state.interpret(parse_line("statelessdraw = ap ap c ap ap b b ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c ap ap b cons ap ap c cons nil nil"));
-
     let (mut last_x, mut last_y) = (-1, -1);
     while app.wait().unwrap() {
         // println!("{:?}", event());
@@ -57,7 +69,7 @@ pub fn ui_main() -> std::io::Result<()> {
                 y -= window.y();
                 if last_x != x || last_y != y {
                     println!("Clicked on ({}, {})", x, y);
-                    let pics = run_interaction(&mut state, "statelessdraw", x as i64, y as i64);
+                    let pics = run_interaction(&mut state, &protocol, x as i64, y as i64);
                     println!("{:?}", pics);
 
                     pics_data.borrow_mut().vec = pics;

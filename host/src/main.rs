@@ -48,20 +48,25 @@ fn run_test(file: String) {
 }
 
 fn main() -> io::Result<()> {
-    if env::args().len() == 2 {
-        let file = fs::read_to_string(env::args().nth(1).unwrap())?;
-        if file.starts_with("TEST") {
-            run_test(file);
-        } else {
-            let mut state = State::new();
-            for line in file.lines() {
-                let stmt = parse_line(line);
-                state.interpret(stmt);
-            }
-            println!("galaxy: {:?}", state.eval(Var::Named("galaxy".to_string())));
-        }
+    let file = fs::read_to_string(if env::args().len() == 2 {
+        env::args().nth(1).unwrap()
     } else {
-        ui_main()?;
+        "./data/i_stateless.txt".to_string()
+    })?;
+    if file.starts_with("TEST") {
+        println!("Mode: test");
+        run_test(file);
+    } else if file.starts_with("INTERACTIVE") {
+        println!("Mode: interactive");
+        ui_main(file)?;
+    } else {
+        println!("Mode: custom");
+        let mut state = State::new();
+        for line in file.lines() {
+            let stmt = parse_line(line);
+            state.interpret(stmt);
+        }
+        println!("galaxy: {:?}", state.eval(Var::Named("galaxy".to_string())));
     }
     Ok(())
 }

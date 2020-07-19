@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::modem::{self, NestedList};
-use crate::syntax::{Stmt, Token, Var};
 use crate::send;
+use crate::syntax::{Stmt, Token, Var};
 
 #[derive(Debug, Default)]
 pub struct State {
@@ -183,18 +183,23 @@ impl State {
                     Value::BuiltIn(BuiltIn::Send) => {
                         let arg = self.eval_nested_list(*arg);
                         let signal = modem::mod_list(&arg);
-                        let signal_str = signal.iter().map(|x| if *x { '1' } else { '0' }).collect::<String>();
-                        let endpoint = String::from("https://icfpc2020-api.testkontur.ru/aliens/send");
+                        let signal_str = signal
+                            .iter()
+                            .map(|x| if *x { '1' } else { '0' })
+                            .collect::<String>();
+                        let endpoint =
+                            String::from("https://icfpc2020-api.testkontur.ru/aliens/send");
                         let token = std::env::var("ICFPC_TEAM_TOKEN").ok();
                         let response = match send::request(&endpoint, token, &signal_str) {
                             Ok(val) => val,
-                            Err(err) => panic!("request failed: {:?}", err)
+                            Err(err) => panic!("request failed: {:?}", err),
                         };
 
-                        let demodulated = match modem::demodulate(&mut response.chars().map(|x| x != '0')) {
-                            Ok(val) => val,
-                            Err(err) => panic!("demodulation failed: {:?}", err)
-                        };
+                        let demodulated =
+                            match modem::demodulate(&mut response.chars().map(|x| x != '0')) {
+                                Ok(val) => val,
+                                Err(err) => panic!("demodulation failed: {:?}", err),
+                            };
                         println!("demodulated to: {:?}", demodulated);
 
                         Value::Number(1)
