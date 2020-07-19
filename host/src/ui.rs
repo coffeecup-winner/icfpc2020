@@ -174,10 +174,12 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     let mut interaction_state = NestedList::Nil;
     let mut prev_state = NestedList::Nil;
     let mut prev_coords = (0, 0);
+    let mut just_loaded = false;
     while app.wait().unwrap() {
         // println!("{:?}", event());
         match event() {
             fltk::enums::Event::Released => {
+                just_loaded = false;
                 let (mut x, mut y) = get_mouse();
                 // Coords processing
                 x = x - window.x() - VIEWPORT_CENTER_X;
@@ -219,6 +221,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
             }
             fltk::enums::Event::KeyUp => match event_key() {
                 fltk::enums::Key::Enter => {
+                    just_loaded = false;
                     println!("Saving the current picture...");
                     let mut img = bmp::Image::new(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
                     let mut img_data = vec![];
@@ -240,6 +243,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                 k => {
                     if k == fltk::enums::Key::from_i32(0xffc2) {
                         // F5 - save
+                        just_loaded = false;
                         println!("Saving state...");
                         let data = NestedList::Cons(
                             Box::new(prev_state.clone()),
@@ -256,33 +260,39 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                         std::fs::write("./save.dat", str)?;
                     } else if k == fltk::enums::Key::from_i32(0xffc5) {
                         // F8 - load
-                        println!("Loading state...");
-                        let file = std::fs::read("./save.dat")?;
-                        let serialized: Vec<_> = file
-                            .into_iter()
-                            .map(|c| if c == b'1' { true } else { false })
-                            .collect();
-                        let list = dem_list(&serialized);
-                        let (st, coords) = list.unwrap_cons();
-                        let (x, y) = coords.unwrap_cons();
-                        interaction_state = st;
-                        let x = x.unwrap_number() as i32;
-                        let y = y.unwrap_number() as i32;
+                        if !just_loaded {
+                            println!("Loading state...");
+                            let file = std::fs::read("./save.dat")?;
+                            let serialized: Vec<_> = file
+                                .into_iter()
+                                .map(|c| if c == b'1' { true } else { false })
+                                .collect();
+                            let list = dem_list(&serialized);
+                            let (st, coords) = list.unwrap_cons();
+                            let (x, y) = coords.unwrap_cons();
+                            interaction_state = st;
+                            let x = x.unwrap_number() as i32;
+                            let y = y.unwrap_number() as i32;
 
-                        let (new_state, pics) = run_interaction(
-                            &mut state,
-                            &protocol,
-                            interaction_state.clone(),
-                            x as i64,
-                            y as i64,
-                        );
-                        prev_state = interaction_state;
-                        prev_coords = (x, y);
-                        interaction_state = new_state;
+                            first_coords = None;
 
-                        pics_data.borrow_mut().vec = pics;
+                            let (new_state, pics) = run_interaction(
+                                &mut state,
+                                &protocol,
+                                interaction_state.clone(),
+                                x as i64,
+                                y as i64,
+                            );
+                            prev_state = interaction_state;
+                            prev_coords = (x, y);
+                            interaction_state = new_state;
 
-                        window.redraw();
+                            pics_data.borrow_mut().vec = pics;
+
+                            window.redraw();
+
+                            just_loaded = true;
+                        }
                     } else {
                         println!("Unhandled key: {:?}", k);
                     }
