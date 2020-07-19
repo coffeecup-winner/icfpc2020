@@ -51,6 +51,16 @@ pub struct V {
     computed: bool,
 }
 
+impl V {
+    pub fn unwrap_number(&self) -> i64 {
+        if let Value_::Number(n) = &self.val {
+            *n
+        } else {
+            panic!("Not a number");
+        }
+    }
+}
+
 pub type Value = Rc<RefCell<V>>;
 
 // Built-in functions except `ap`
@@ -117,28 +127,6 @@ impl State {
             Value_::BuiltIn(_) => val,
             Value_::Apply(f0, arg0) => {
                 match &self.eval(f0.clone()).borrow().val {
-                    // Value_::BuiltIn(BuiltIn::Send) => {
-                    //     let arg0 = self.eval_nested_list(arg0.clone());
-                    //     let signal = modem::mod_list(&arg0);
-                    //     let signal_str = signal
-                    //         .into_iter()
-                    //         .map(|x| if x { '1' } else { '0' })
-                    //         .collect();
-                    //     let endpoint =
-                    //         String::from("https://icfpc2020-api.testkontur.ru/aliens/send");
-                    //     let token = std::env::var("ICFPC_TEAM_TOKEN").ok();
-                    //     let response = match send::request(&endpoint, token, &signal_str) {
-                    //         Ok(val) => val,
-                    //         Err(err) => panic!("request failed: {:?}", err),
-                    //     };
-
-                    //     let demodulated =
-                    //         match modem::demodulate(&mut response.chars().map(|x| x != '0')) {
-                    //             Ok(val) => val,
-                    //             Err(err) => panic!("demodulation failed: {:?}", err),
-                    //         };
-                    //     panic!("demodulated to: {:?}", demodulated);
-                    // }
                     Value_::BuiltIn(BuiltIn::Inc) => {
                         if let Value_::Number(n) = self.eval(arg0.clone()).borrow().val {
                             number(n + 1)
@@ -147,26 +135,14 @@ impl State {
                         }
                     }
                     Value_::BuiltIn(BuiltIn::Dec) => {
-                        if let Value_::Number(n) = self.eval(arg0.clone()).borrow().val {
-                            number(n - 1)
-                        } else {
-                            panic!("Invalid argument for `dec`");
-                        }
+                        number(self.eval(arg0.clone()).borrow().unwrap_number() - 1)
                     }
                     Value_::BuiltIn(BuiltIn::Neg) => {
-                        if let Value_::Number(n) = self.eval(arg0.clone()).borrow().val {
-                            number(-n)
-                        } else {
-                            panic!("Invalid argument for `neg`");
-                        }
+                        number(-self.eval(arg0.clone()).borrow().unwrap_number())
                     }
-                    Value_::BuiltIn(BuiltIn::Pwr2) => {
-                        if let Value_::Number(n) = self.eval(arg0.clone()).borrow().val {
-                            number((2 as i64).pow(n as u32))
-                        } else {
-                            panic!("Invalid argument for `pwr2`");
-                        }
-                    }
+                    Value_::BuiltIn(BuiltIn::Pwr2) => number(
+                        (2 as i64).pow(self.eval(arg0.clone()).borrow().unwrap_number() as u32),
+                    ),
                     Value_::BuiltIn(BuiltIn::I) => arg0.clone(),
                     Value_::BuiltIn(BuiltIn::Head) => ap(arg0.clone(), b(BuiltIn::True)),
                     Value_::BuiltIn(BuiltIn::Tail) => ap(arg0.clone(), b(BuiltIn::False)),
@@ -179,72 +155,34 @@ impl State {
                     // ===== Arity 2 =====
                     Value_::Apply(f1, arg1) => {
                         match &self.eval(f1.clone()).borrow().val {
-                            Value_::BuiltIn(BuiltIn::Add) => {
-                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
-                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val
-                                    {
-                                        number(x + y)
-                                    } else {
-                                        panic!("Invalid argument for `add`");
-                                    }
-                                } else {
-                                    panic!("Invalid argument for `add`");
-                                }
-                            }
-                            Value_::BuiltIn(BuiltIn::Mul) => {
-                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
-                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val
-                                    {
-                                        number(x * y)
-                                    } else {
-                                        panic!("Invalid argument for `mul`");
-                                    }
-                                } else {
-                                    panic!("Invalid argument for `mul`");
-                                }
-                            }
-                            Value_::BuiltIn(BuiltIn::Div) => {
-                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
-                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val
-                                    {
-                                        number(x / y)
-                                    } else {
-                                        panic!("Invalid argument for `div`");
-                                    }
-                                } else {
-                                    panic!("Invalid argument for `div`");
-                                }
-                            }
+                            Value_::BuiltIn(BuiltIn::Add) => number(
+                                self.eval(arg1.clone()).borrow().unwrap_number()
+                                    + self.eval(arg0.clone()).borrow().unwrap_number(),
+                            ),
+                            Value_::BuiltIn(BuiltIn::Mul) => number(
+                                self.eval(arg1.clone()).borrow().unwrap_number()
+                                    * self.eval(arg0.clone()).borrow().unwrap_number(),
+                            ),
+                            Value_::BuiltIn(BuiltIn::Div) => number(
+                                self.eval(arg1.clone()).borrow().unwrap_number()
+                                    / self.eval(arg0.clone()).borrow().unwrap_number(),
+                            ),
                             Value_::BuiltIn(BuiltIn::Eq) => {
-                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
-                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val
-                                    {
-                                        if x == y {
-                                            b(BuiltIn::True)
-                                        } else {
-                                            b(BuiltIn::False)
-                                        }
-                                    } else {
-                                        panic!("Invalid argument for `eq`");
-                                    }
+                                if self.eval(arg1.clone()).borrow().unwrap_number()
+                                    == self.eval(arg0.clone()).borrow().unwrap_number()
+                                {
+                                    b(BuiltIn::True)
                                 } else {
-                                    panic!("Invalid argument for `eq`");
+                                    b(BuiltIn::False)
                                 }
                             }
                             Value_::BuiltIn(BuiltIn::Lt) => {
-                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
-                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val
-                                    {
-                                        if x < y {
-                                            b(BuiltIn::True)
-                                        } else {
-                                            b(BuiltIn::False)
-                                        }
-                                    } else {
-                                        panic!("Invalid argument for `lt`");
-                                    }
+                                if self.eval(arg1.clone()).borrow().unwrap_number()
+                                    < self.eval(arg0.clone()).borrow().unwrap_number()
+                                {
+                                    b(BuiltIn::True)
                                 } else {
-                                    panic!("Invalid argument for `lt`");
+                                    b(BuiltIn::False)
                                 }
                             }
                             Value_::BuiltIn(BuiltIn::True) => arg1.clone(),
