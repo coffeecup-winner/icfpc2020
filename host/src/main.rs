@@ -1,4 +1,4 @@
-use std::{env, fs, io};
+use std::{env, fs, io, thread};
 
 mod eval;
 mod interact;
@@ -32,7 +32,7 @@ fn run_test(file: String) {
         } else if let Some(l) = line.strip_prefix("DRAW ") {
             let picture = parse_picture(l);
             state.interpret(picture);
-            let v = state.eval(&Var::Named("picture".to_string()));
+            let v = state.eval_v(&Var::Named("picture".to_string()));
             let pics = state.eval_picture_list(v);
             print_pictures(&pics);
         } else {
@@ -40,14 +40,14 @@ fn run_test(file: String) {
             state.interpret(expr);
             state.interpret(expected);
             assert_eq!(
-                state.eval(&Var::Named("expr".to_string())),
-                state.eval(&Var::Named("expected".to_string()))
+                state.eval_v(&Var::Named("expr".to_string())),
+                state.eval_v(&Var::Named("expected".to_string()))
             );
         }
     }
 }
 
-fn main() -> io::Result<()> {
+fn run() -> io::Result<()> {
     let path = if env::args().len() == 2 {
         env::args().nth(1).unwrap()
     } else {
@@ -70,8 +70,19 @@ fn main() -> io::Result<()> {
         }
         println!(
             "galaxy: {:?}",
-            state.eval(&Var::Named("galaxy".to_string()))
+            state.eval_v(&Var::Named("galaxy".to_string()))
         );
     }
     Ok(())
+}
+
+// Remove later if not needed
+const THREAD_STACK_SIZE: usize = 4 * 1024 * 1024;
+
+fn main() -> io::Result<()> {
+    let child_thread = thread::Builder::new()
+        .stack_size(THREAD_STACK_SIZE)
+        .spawn(run)?;
+
+    child_thread.join().unwrap()
 }

@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::modem::{self, NestedList};
 use crate::send;
@@ -10,14 +12,64 @@ pub struct State {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Value {
+pub enum Value_ {
     Var(Var),
     Number(i64),
     Signal(Vec<bool>), // used with modulate / demodulate
     Picture(Picture),
     BuiltIn(BuiltIn),
-    Apply(Box<Value>, Box<Value>),
+    Apply(Value, Value),
 }
+
+fn var(v: Var) -> Value {
+    Rc::new(RefCell::new(V {
+        val: Value_::Var(v),
+        computed: false,
+    }))
+}
+
+fn number(n: i64) -> Value {
+    Rc::new(RefCell::new(V {
+        val: Value_::Number(n),
+        computed: true,
+    }))
+}
+
+fn signal(s: Vec<bool>) -> Value {
+    Rc::new(RefCell::new(V {
+        val: Value_::Signal(s),
+        computed: true,
+    }))
+}
+
+fn picture(p: Picture) -> Value {
+    Rc::new(RefCell::new(V {
+        val: Value_::Picture(p),
+        computed: true,
+    }))
+}
+
+pub fn b(b: BuiltIn) -> Value {
+    Rc::new(RefCell::new(V {
+        val: Value_::BuiltIn(b),
+        computed: true,
+    }))
+}
+
+fn ap(f: Value, arg: Value) -> Value {
+    Rc::new(RefCell::new(V {
+        val: Value_::Apply(f, arg),
+        computed: false,
+    }))
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct V {
+    val: Value_,
+    computed: bool,
+}
+
+pub type Value = Rc<RefCell<V>>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Point {
@@ -114,35 +166,25 @@ impl State {
         self.vars.insert(var, val);
     }
 
-    pub fn eval(&self, var: &Var) -> Value {
-        let v = self.vars.get(var).unwrap().clone();
-        self.eval_value(v, true)
-    }
-
-    pub fn eval_deep(&self, var: &Var) -> Value {
-        let v = self.vars.get(var).unwrap().clone();
-        self.eval_value(v, false)
-    }
-
     // This will put a single picture into a vector as well
     pub fn eval_picture_list(&self, val: Value) -> Vec<Picture> {
-        if let Value::Picture(p) = val {
-            return vec![p];
+        if let Value_::Picture(p) = &val.borrow().val {
+            return vec![p.clone()];
         } else {
             let mut curr = val.clone();
             let mut result = vec![];
             loop {
-                if let Value::Apply(f0, tail) = curr {
-                    if let Value::Apply(f1, head) = *f0 {
-                        if let Value::BuiltIn(BuiltIn::Cons) = *f1 {
-                            if let Value::Picture(p) = *head {
-                                result.push(p);
-                                curr = *tail;
+                if let Value_::Apply(f0, tail) = &curr.clone().borrow().val {
+                    if let Value_::Apply(f1, head) = &f0.borrow().val {
+                        if let Value_::BuiltIn(BuiltIn::Cons) = &f1.borrow().val {
+                            if let Value_::Picture(p) = &head.borrow().val {
+                                result.push(p.clone());
+                                curr = tail.clone();
                                 continue;
                             }
                         }
                     }
-                } else if Value::BuiltIn(BuiltIn::Nil) == curr {
+                } else if Value_::BuiltIn(BuiltIn::Nil) == curr.borrow().val {
                     break;
                 }
                 panic!("Not a picture: {:?}", val);
@@ -151,18 +193,41 @@ impl State {
         }
     }
 
-    fn eval_value(&self, val: Value, lazy: bool) -> Value {
+    pub fn eval_v(&self, var: &Var) -> Value {
+        let v = self.vars.get(var).unwrap();
+        self.eval(v.clone())
+    }
+
+    pub fn eval(&self, val: Value) -> Value {
+        if val.borrow().computed {
+            return val;
+        }
+        let mut curr = val.clone();
+        loop {
+            let new = self.eval_core(curr.clone());
+            if new == curr {
+                let value = new.borrow().val.clone();
+                val.borrow_mut().val = value;
+                val.borrow_mut().computed = true;
+                break val;
+            }
+            curr = new.clone();
+        }
+    }
+
+    fn eval_core(&self, val: Value) -> Value {
         // println!("eval_value: {:?}", val);
-        match val.clone() {
-            Value::Var(v) => self.eval_value(self.vars.get(&v).unwrap().clone(), lazy),
-            Value::Number(_) => val,
-            Value::Signal(_) => val,
-            Value::Picture(_) => val,
-            Value::BuiltIn(_) => val,
-            Value::Apply(f0, arg0) => {
-                match self.eval_value(*f0, false) {
-                    Value::BuiltIn(BuiltIn::Send) => {
-                        let arg0 = self.eval_nested_list(*arg0);
+        let value = val.borrow().val.clone();
+        match &value {
+            Value_::Var(v) => self.vars.get(&v).unwrap().clone(),
+            Value_::Number(_) => val,
+            Value_::Signal(_) => val,
+            Value_::Picture(_) => val,
+            Value_::BuiltIn(_) => val,
+            Value_::Apply(f0, arg0) => {
+                match &self.eval(f0.clone()).borrow().val {
+                    Value_::BuiltIn(BuiltIn::Send) => {
+                        let arg0 = self.eval_nested_list(arg0.clone());
                         let signal = modem::mod_list(&arg0);
                         let signal_str = signal
                             .into_iter()
@@ -181,90 +246,65 @@ impl State {
                                 Ok(val) => val,
                                 Err(err) => panic!("demodulation failed: {:?}", err),
                             };
-                        println!("demodulated to: {:?}", demodulated);
-
-                        Value::Number(1)
+                        panic!("demodulated to: {:?}", demodulated);
                     }
-                    Value::BuiltIn(BuiltIn::Inc) => {
-                        if let Value::Number(n) = self.eval_value(*arg0, lazy) {
-                            Value::Number(n + 1)
+                    Value_::BuiltIn(BuiltIn::Inc) => {
+                        if let Value_::Number(n) = self.eval(arg0.clone()).borrow().val {
+                            number(n + 1)
                         } else {
                             panic!("Invalid argument for `inc`");
                         }
                     }
-                    Value::BuiltIn(BuiltIn::Dec) => {
-                        if let Value::Number(n) = self.eval_value(*arg0, lazy) {
-                            Value::Number(n - 1)
+                    Value_::BuiltIn(BuiltIn::Dec) => {
+                        if let Value_::Number(n) = self.eval(arg0.clone()).borrow().val {
+                            number(n - 1)
                         } else {
                             panic!("Invalid argument for `dec`");
                         }
                     }
-                    Value::BuiltIn(BuiltIn::Mod) => Value::Signal(modem::mod_list(
-                        &self.eval_nested_list(self.eval_value(*arg0, false)),
+                    Value_::BuiltIn(BuiltIn::Mod) => signal(modem::mod_list(
+                        &self.eval_nested_list(self.eval(arg0.clone())),
                     )),
-                    Value::BuiltIn(BuiltIn::Dem) => {
-                        if let Value::Signal(s) = self.eval_value(*arg0, lazy) {
-                            let list = modem::dem_list(&s);
+                    Value_::BuiltIn(BuiltIn::Dem) => {
+                        if let Value_::Signal(s) = &self.eval(arg0.clone()).borrow().val {
+                            let list = modem::dem_list(s);
                             panic!("TODO: demodulate {:?}", list);
                         } else {
                             panic!("Invalid argument for `dem`");
                         }
                     }
-                    Value::BuiltIn(BuiltIn::Neg) => {
-                        if let Value::Number(n) = self.eval_value(*arg0, lazy) {
-                            Value::Number(-n)
+                    Value_::BuiltIn(BuiltIn::Neg) => {
+                        if let Value_::Number(n) = self.eval(arg0.clone()).borrow().val {
+                            number(-n)
                         } else {
                             panic!("Invalid argument for `neg`");
                         }
                     }
-                    Value::BuiltIn(BuiltIn::Pwr2) => {
-                        if let Value::Number(n) = self.eval_value(*arg0, lazy) {
-                            Value::Number((2 as i64).pow(n as u32))
+                    Value_::BuiltIn(BuiltIn::Pwr2) => {
+                        if let Value_::Number(n) = self.eval(arg0.clone()).borrow().val {
+                            number((2 as i64).pow(n as u32))
                         } else {
                             panic!("Invalid argument for `pwr2`");
                         }
                     }
-                    Value::BuiltIn(BuiltIn::I) => self.eval_value(*arg0, lazy),
-                    Value::BuiltIn(BuiltIn::Head) => {
-                        let e_arg0 = if lazy {
-                            arg0
-                        } else {
-                            Box::new(self.eval_value(*arg0, lazy))
-                        };
-                        self.eval_value(
-                            Value::Apply(e_arg0, Box::new(Value::BuiltIn(BuiltIn::True))),
-                            lazy,
-                        )
-                    }
-                    Value::BuiltIn(BuiltIn::Tail) => {
-                        let e_arg0 = if lazy {
-                            arg0
-                        } else {
-                            Box::new(self.eval_value(*arg0, lazy))
-                        };
-                        self.eval_value(
-                            Value::Apply(e_arg0, Box::new(Value::BuiltIn(BuiltIn::False))),
-                            lazy,
-                        )
-                    }
-                    Value::BuiltIn(BuiltIn::Nil) => Value::BuiltIn(BuiltIn::True),
-                    Value::BuiltIn(BuiltIn::IsNil) => {
-                        if let Value::BuiltIn(BuiltIn::Nil) = *arg0 {
-                            Value::BuiltIn(BuiltIn::True)
-                        } else {
-                            Value::BuiltIn(BuiltIn::False)
-                        }
-                    }
-                    Value::BuiltIn(BuiltIn::Draw) => Value::Picture(self.eval_draw(*arg0)),
-                    Value::BuiltIn(BuiltIn::MultiDraw) => self.eval_multidraw(*arg0),
+                    Value_::BuiltIn(BuiltIn::I) => arg0.clone(),
+                    Value_::BuiltIn(BuiltIn::Head) => ap(arg0.clone(), b(BuiltIn::True)),
+                    Value_::BuiltIn(BuiltIn::Tail) => ap(arg0.clone(), b(BuiltIn::False)),
+                    Value_::BuiltIn(BuiltIn::Nil) => b(BuiltIn::True),
+                    Value_::BuiltIn(BuiltIn::IsNil) => ap(
+                        arg0.clone(),
+                        ap(b(BuiltIn::True), ap(b(BuiltIn::True), b(BuiltIn::False))),
+                    ),
+                    Value_::BuiltIn(BuiltIn::Draw) => picture(self.eval_draw(arg0.clone())),
+                    Value_::BuiltIn(BuiltIn::MultiDraw) => self.eval_multidraw(arg0.clone()),
 
                     // ===== Arity 2 =====
-                    Value::Apply(f1, arg1) => {
-                        match self.eval_value(*f1, false) {
-                            Value::BuiltIn(BuiltIn::Add) => {
-                                if let Value::Number(b) = self.eval_value(*arg0, lazy) {
-                                    if let Value::Number(a) = self.eval_value(*arg1, lazy) {
-                                        Value::Number(a + b)
+                    Value_::Apply(f1, arg1) => {
+                        match &self.eval(f1.clone()).borrow().val {
+                            Value_::BuiltIn(BuiltIn::Add) => {
+                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
+                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val {
+                                        number(x + y)
                                     } else {
                                         panic!("Invalid argument for `add`");
                                     }
@@ -272,10 +312,10 @@ impl State {
                                     panic!("Invalid argument for `add`");
                                 }
                             }
-                            Value::BuiltIn(BuiltIn::Mul) => {
-                                if let Value::Number(b) = self.eval_value(*arg0, lazy) {
-                                    if let Value::Number(a) = self.eval_value(*arg1, lazy) {
-                                        Value::Number(a * b)
+                            Value_::BuiltIn(BuiltIn::Mul) => {
+                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
+                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val {
+                                        number(x * y)
                                     } else {
                                         panic!("Invalid argument for `mul`");
                                     }
@@ -283,10 +323,10 @@ impl State {
                                     panic!("Invalid argument for `mul`");
                                 }
                             }
-                            Value::BuiltIn(BuiltIn::Div) => {
-                                if let Value::Number(b) = self.eval_value(*arg0, lazy) {
-                                    if let Value::Number(a) = self.eval_value(*arg1, lazy) {
-                                        Value::Number(a / b)
+                            Value_::BuiltIn(BuiltIn::Div) => {
+                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
+                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val {
+                                        number(x / y)
                                     } else {
                                         panic!("Invalid argument for `div`");
                                     }
@@ -294,13 +334,13 @@ impl State {
                                     panic!("Invalid argument for `div`");
                                 }
                             }
-                            Value::BuiltIn(BuiltIn::Eq) => {
-                                if let Value::Number(b) = self.eval_value(*arg0, lazy) {
-                                    if let Value::Number(a) = self.eval_value(*arg1, lazy) {
-                                        if a == b {
-                                            Value::BuiltIn(BuiltIn::True)
+                            Value_::BuiltIn(BuiltIn::Eq) => {
+                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
+                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val {
+                                        if x == y {
+                                            b(BuiltIn::True)
                                         } else {
-                                            Value::BuiltIn(BuiltIn::False)
+                                            b(BuiltIn::False)
                                         }
                                     } else {
                                         panic!("Invalid argument for `eq`");
@@ -309,13 +349,13 @@ impl State {
                                     panic!("Invalid argument for `eq`");
                                 }
                             }
-                            Value::BuiltIn(BuiltIn::Lt) => {
-                                if let Value::Number(b) = self.eval_value(*arg0, lazy) {
-                                    if let Value::Number(a) = self.eval_value(*arg1, lazy) {
-                                        if a < b {
-                                            Value::BuiltIn(BuiltIn::True)
+                            Value_::BuiltIn(BuiltIn::Lt) => {
+                                if let Value_::Number(y) = self.eval(arg0.clone()).borrow().val {
+                                    if let Value_::Number(x) = self.eval(arg1.clone()).borrow().val {
+                                        if x < y {
+                                            b(BuiltIn::True)
                                         } else {
-                                            Value::BuiltIn(BuiltIn::False)
+                                            b(BuiltIn::False)
                                         }
                                     } else {
                                         panic!("Invalid argument for `lt`");
@@ -324,154 +364,32 @@ impl State {
                                     panic!("Invalid argument for `lt`");
                                 }
                             }
-                            Value::BuiltIn(BuiltIn::True) => self.eval_value(*arg1, lazy),
-                            Value::BuiltIn(BuiltIn::False) => self.eval_value(*arg0, lazy),
-                            Value::BuiltIn(BuiltIn::F38) => {
-                                let e_arg0 = Box::new(self.eval_value(*arg1, lazy));
-                                let e_arg1 = Box::new(self.eval_value(*arg0, lazy));
-                                self.eval_value(Self::construct_f38_builtin(e_arg0, e_arg1), lazy)
+                            Value_::BuiltIn(BuiltIn::True) => arg1.clone(),
+                            Value_::BuiltIn(BuiltIn::False) => arg0.clone(),
+                            Value_::BuiltIn(BuiltIn::F38) => {
+                                Self::construct_f38_builtin(arg1.clone(), arg0.clone())
                             }
 
                             // ===== Arity 3 =====
-                            Value::Apply(f2, arg2) => {
-                                match self.eval_value(*f2, false) {
-                                    Value::BuiltIn(BuiltIn::S) => {
-                                        let (e_arg0, e_arg1, e_arg2) = if lazy {
-                                            (arg2, arg1, arg0)
-                                        } else {
-                                            (
-                                                Box::new(self.eval_value(*arg2, lazy)),
-                                                Box::new(self.eval_value(*arg1, lazy)),
-                                                Box::new(self.eval_value(*arg0, lazy)),
-                                            )
-                                        };
-                                        let (e_ap0, e_ap1) = if lazy {
-                                            (
-                                                Value::Apply(e_arg0, e_arg2.clone()), // If costly, use Rc
-                                                Value::Apply(e_arg1, e_arg2),
-                                            )
-                                        } else {
-                                            (
-                                                self.eval_value(
-                                                    Value::Apply(e_arg0, e_arg2.clone()),
-                                                    lazy,
-                                                ), // If costly, use Rc
-                                                self.eval_value(Value::Apply(e_arg1, e_arg2), lazy),
-                                            )
-                                        };
-                                        self.eval_value(
-                                            Value::Apply(Box::new(e_ap0), Box::new(e_ap1)),
-                                            lazy,
-                                        )
-                                    }
-                                    Value::BuiltIn(BuiltIn::C) => {
-                                        let (e_arg0, e_arg1, e_arg2) = if lazy {
-                                            (arg2, arg1, arg0)
-                                        } else {
-                                            (
-                                                Box::new(self.eval_value(*arg2, lazy)),
-                                                Box::new(self.eval_value(*arg1, lazy)),
-                                                Box::new(self.eval_value(*arg0, lazy)),
-                                            )
-                                        };
-                                        let e_ap0 = if lazy {
-                                            Value::Apply(e_arg0, e_arg2)
-                                        } else {
-                                            self.eval_value(Value::Apply(e_arg0, e_arg2), lazy)
-                                        };
-                                        self.eval_value(Value::Apply(Box::new(e_ap0), e_arg1), lazy)
-                                    }
-                                    Value::BuiltIn(BuiltIn::B) => {
-                                        let (e_arg0, e_arg1, e_arg2) = if lazy {
-                                            (arg2, arg1, arg0)
-                                        } else {
-                                            (
-                                                Box::new(self.eval_value(*arg2, lazy)),
-                                                Box::new(self.eval_value(*arg1, lazy)),
-                                                Box::new(self.eval_value(*arg0, lazy)),
-                                            )
-                                        };
-                                        let e_ap0 = if lazy {
-                                            Value::Apply(e_arg1, e_arg2)
-                                        } else {
-                                            self.eval_value(Value::Apply(e_arg1, e_arg2), lazy)
-                                        };
-                                        self.eval_value(Value::Apply(e_arg0, Box::new(e_ap0)), lazy)
-                                    }
-                                    Value::BuiltIn(BuiltIn::Cons) => {
-                                        let (e_arg0, e_arg1, e_arg2) = if lazy {
-                                            (arg2, arg1, arg0)
-                                        } else {
-                                            (
-                                                Box::new(self.eval_value(*arg2, lazy)),
-                                                Box::new(self.eval_value(*arg1, lazy)),
-                                                Box::new(self.eval_value(*arg0, lazy)),
-                                            )
-                                        };
-                                        let e_ap0 = if lazy {
-                                            Value::Apply(e_arg2, e_arg0)
-                                        } else {
-                                            self.eval_value(Value::Apply(e_arg2, e_arg0), lazy)
-                                        };
-                                        self.eval_value(Value::Apply(Box::new(e_ap0), e_arg1), lazy)
-                                    }
-                                    Value::BuiltIn(BuiltIn::If0) => {
-                                        if let Value::Number(0) = self.eval_value(*arg2, lazy) {
-                                            self.eval_value(*arg1, lazy)
-                                        } else {
-                                            self.eval_value(*arg0, lazy)
-                                        }
-                                    }
-                                    Value::BuiltIn(BuiltIn::Interact) => {
-                                        let (e_arg0, e_arg1, e_arg2) = if lazy {
-                                            (arg2, arg1, arg0)
-                                        } else {
-                                            (
-                                                Box::new(self.eval_value(*arg2, lazy)),
-                                                Box::new(self.eval_value(*arg1, lazy)),
-                                                Box::new(self.eval_value(*arg0, lazy)),
-                                            )
-                                        };
-                                        let (e_ap0, e_ap1) = if lazy {
-                                            (
-                                                Value::Apply(
-                                                    Box::new(Value::BuiltIn(BuiltIn::F38)),
-                                                    e_arg0.clone(),
-                                                ),
-                                                Value::Apply(
-                                                    Box::new(Value::Apply(e_arg0, e_arg1)),
-                                                    e_arg2,
-                                                ),
-                                            )
-                                        } else {
-                                            (
-                                                self.eval_value(
-                                                    Value::Apply(
-                                                        Box::new(Value::BuiltIn(BuiltIn::F38)),
-                                                        e_arg0.clone(),
-                                                    ),
-                                                    lazy,
-                                                ),
-                                                self.eval_value(
-                                                    Value::Apply(
-                                                        Box::new(self.eval_value(
-                                                            Value::Apply(e_arg0, e_arg1),
-                                                            lazy,
-                                                        )),
-                                                        e_arg2,
-                                                    ),
-                                                    lazy,
-                                                ),
-                                            )
-                                        };
-                                        self.eval_value(
-                                            Value::Apply(Box::new(e_ap0), Box::new(e_ap1)),
-                                            lazy,
-                                        )
-                                    }
-                                    _ => val,
+                            Value_::Apply(f2, arg2) => match &self.eval(f2.clone()).borrow().val {
+                                Value_::BuiltIn(BuiltIn::S) => {
+                                    ap(ap(arg2.clone(), arg0.clone()), ap(arg1.clone(), arg0.clone()))
                                 }
-                            }
+                                Value_::BuiltIn(BuiltIn::C) => ap(ap(arg2.clone(), arg0.clone()), arg1.clone()),
+                                Value_::BuiltIn(BuiltIn::B) => ap(arg2.clone(), ap(arg1.clone(), arg0.clone())),
+                                Value_::BuiltIn(BuiltIn::Cons) => ap(ap(arg0.clone(), arg2.clone()), arg1.clone()),
+                                Value_::BuiltIn(BuiltIn::If0) => {
+                                    if let Value_::Number(0) = self.eval(arg2.clone()).borrow().val {
+                                        arg1.clone()
+                                    } else {
+                                        arg0.clone()
+                                    }
+                                }
+                                Value_::BuiltIn(BuiltIn::Interact) => {
+                                    ap(ap(b(BuiltIn::F38), arg2.clone()), ap(ap(arg2.clone(), arg1.clone()), arg0.clone()))
+                                }
+                                _ => val,
+                            },
                             _ => val,
                         }
                     }
@@ -481,83 +399,54 @@ impl State {
         }
     }
 
-    fn construct_f38_builtin(arg0: Box<Value>, arg1: Box<Value>) -> Value {
+    fn construct_f38_builtin(arg0: Value, arg1: Value) -> Value {
         use self::BuiltIn::*;
-        use self::Value::*;
-        let b = |x| Box::new(x);
-        Apply(
-            b(Apply(
-                b(Apply(
-                    b(BuiltIn(If0)),
-                    b(Apply(b(BuiltIn(Head)), arg1.clone())),
-                )),
-                b(Apply(
-                    b(Apply(
-                        b(BuiltIn(Cons)),
-                        b(Apply(
-                            b(BuiltIn(I)), // TODO: modem
-                            b(Apply(
-                                b(BuiltIn(Head)),
-                                b(Apply(b(BuiltIn(Tail)), arg1.clone())),
-                            )),
-                        )),
-                    )),
-                    b(Apply(
-                        b(Apply(
-                            b(BuiltIn(Cons)),
-                            b(Apply(
-                                b(BuiltIn(MultiDraw)),
-                                b(Apply(
-                                    b(BuiltIn(Head)),
-                                    b(Apply(
-                                        b(BuiltIn(Tail)),
-                                        b(Apply(b(BuiltIn(Tail)), arg1.clone())),
-                                    )),
-                                )),
-                            )),
-                        )),
-                        b(BuiltIn(Nil)),
-                    )),
-                )),
-            )),
-            b(Apply(
-                b(Apply(
-                    b(Apply(b(BuiltIn(Interact)), arg0)),
-                    b(Apply(
-                        b(BuiltIn(I)), // TODO: modem
-                        b(Apply(
-                            b(BuiltIn(Head)),
-                            b(Apply(b(BuiltIn(Tail)), arg1.clone())),
-                        )),
-                    )),
-                )),
-                b(Apply(
-                    b(BuiltIn(Send)),
-                    b(Apply(
-                        b(BuiltIn(Head)),
-                        b(Apply(b(BuiltIn(Tail)), b(Apply(b(BuiltIn(Tail)), arg1)))),
-                    )),
-                )),
-            )),
+        ap(
+            ap(
+                ap(b(If0), ap(b(Head), arg1.clone())),
+                ap(
+                    ap(
+                        b(Cons),
+                        ap(
+                            b(I), // TODO: modem
+                            ap(b(Head), ap(b(Tail), arg1.clone())),
+                        ),
+                    ),
+                    ap(
+                        ap(
+                            b(Cons),
+                            ap(b(MultiDraw), ap(b(Head), ap(b(Tail), ap(b(Tail), arg1.clone())))),
+                        ),
+                        b(Nil),
+                    ),
+                ),
+            ),
+            ap(
+                ap(
+                    ap(b(Interact), arg0),
+                    ap(
+                        b(I), // TODO: modem
+                        ap(b(Head), ap(b(Tail), arg1.clone())),
+                    ),
+                ),
+                ap(b(Send), ap(b(Head), ap(b(Tail), ap(b(Tail), arg1)))),
+            ),
         )
     }
 
     fn eval_multidraw(&self, val: Value) -> Value {
         // println!("multidraw lazy: {:?}", val);
-        let val = self.eval_value(val, false);
+        let val = self.eval(val);
         // println!("multidraw eager: {:?}", val);
-        if Value::BuiltIn(BuiltIn::Nil) == val {
+        if Value_::BuiltIn(BuiltIn::Nil) == val.borrow().val {
             return val;
         }
-        if let Value::Apply(f1, tail) = val {
-            if let Value::Apply(f0, head) = *f1 {
-                if let Value::BuiltIn(BuiltIn::Cons) = *f0 {
-                    return Value::Apply(
-                        Box::new(Value::Apply(
-                            Box::new(Value::BuiltIn(BuiltIn::Cons)),
-                            Box::new(Value::Picture(self.eval_draw(*head))),
-                        )),
-                        Box::new(self.eval_multidraw(*tail)),
+        if let Value_::Apply(f1, tail) = &val.borrow().val {
+            if let Value_::Apply(f0, head) = &f1.borrow().val {
+                if let Value_::BuiltIn(BuiltIn::Cons) = &f0.borrow().val {
+                    return ap(
+                        ap(b(BuiltIn::Cons), picture(self.eval_draw(head.clone()))),
+                        self.eval_multidraw(tail.clone()),
                     );
                 }
             }
@@ -598,13 +487,13 @@ impl State {
     }
 
     fn eval_nested_list(&self, val: Value) -> NestedList {
-        match val {
-            Value::Apply(f1, tail) => {
-                if let Value::Apply(f0, head) = *f1 {
-                    if let Value::BuiltIn(BuiltIn::Cons) = *f0 {
+        match &val.borrow().val {
+            Value_::Apply(f1, tail) => {
+                if let Value_::Apply(f0, head) = &f1.borrow().val {
+                    if let Value_::BuiltIn(BuiltIn::Cons) = &f0.borrow().val {
                         NestedList::Cons(
-                            Box::new(self.eval_nested_list(*head)),
-                            Box::new(self.eval_nested_list(*tail)),
+                            Box::new(self.eval_nested_list(head.clone())),
+                            Box::new(self.eval_nested_list(tail.clone())),
                         )
                     } else {
                         panic!("Invalid list format")
@@ -613,8 +502,8 @@ impl State {
                     panic!("Invalid list format")
                 }
             }
-            Value::BuiltIn(BuiltIn::Nil) => NestedList::Nil,
-            Value::Number(n) => NestedList::Number(n),
+            Value_::BuiltIn(BuiltIn::Nil) => NestedList::Nil,
+            Value_::Number(n) => NestedList::Number(*n),
             _ => panic!("Invalid value in eval_list: {:?}", val),
         }
     }
@@ -631,42 +520,42 @@ impl State {
         let mut stack: Vec<Value> = vec![];
         for token in code.into_iter().rev() {
             match token {
-                Token::Var(v) => stack.push(Value::Var(v)),
+                Token::Var(v) => stack.push(var(v)),
 
-                Token::Number(n) => stack.push(Value::Number(n)),
-                Token::True => stack.push(Value::BuiltIn(BuiltIn::True)),
-                Token::False => stack.push(Value::BuiltIn(BuiltIn::False)),
-                Token::Nil => stack.push(Value::BuiltIn(BuiltIn::Nil)),
+                Token::Number(n) => stack.push(number(n)),
+                Token::True => stack.push(b(BuiltIn::True)),
+                Token::False => stack.push(b(BuiltIn::False)),
+                Token::Nil => stack.push(b(BuiltIn::Nil)),
 
-                Token::Inc => stack.push(Value::BuiltIn(BuiltIn::Inc)),
-                Token::Dec => stack.push(Value::BuiltIn(BuiltIn::Dec)),
-                Token::Add => stack.push(Value::BuiltIn(BuiltIn::Add)),
-                Token::Mul => stack.push(Value::BuiltIn(BuiltIn::Mul)),
-                Token::Div => stack.push(Value::BuiltIn(BuiltIn::Div)),
-                Token::Eq => stack.push(Value::BuiltIn(BuiltIn::Eq)),
-                Token::Lt => stack.push(Value::BuiltIn(BuiltIn::Lt)),
-                Token::Mod => stack.push(Value::BuiltIn(BuiltIn::Mod)),
-                Token::Dem => stack.push(Value::BuiltIn(BuiltIn::Dem)),
-                Token::Send => stack.push(Value::BuiltIn(BuiltIn::Send)),
-                Token::Neg => stack.push(Value::BuiltIn(BuiltIn::Neg)),
-                Token::S => stack.push(Value::BuiltIn(BuiltIn::S)),
-                Token::C => stack.push(Value::BuiltIn(BuiltIn::C)),
-                Token::B => stack.push(Value::BuiltIn(BuiltIn::B)),
-                Token::Pwr2 => stack.push(Value::BuiltIn(BuiltIn::Pwr2)),
-                Token::I => stack.push(Value::BuiltIn(BuiltIn::I)),
-                Token::Cons => stack.push(Value::BuiltIn(BuiltIn::Cons)),
-                Token::Head => stack.push(Value::BuiltIn(BuiltIn::Head)),
-                Token::Tail => stack.push(Value::BuiltIn(BuiltIn::Tail)),
-                Token::IsNil => stack.push(Value::BuiltIn(BuiltIn::IsNil)),
-                Token::Draw => stack.push(Value::BuiltIn(BuiltIn::Draw)),
-                Token::MultiDraw => stack.push(Value::BuiltIn(BuiltIn::MultiDraw)),
-                Token::If0 => stack.push(Value::BuiltIn(BuiltIn::If0)),
-                Token::Interact => stack.push(Value::BuiltIn(BuiltIn::Interact)),
+                Token::Inc => stack.push(b(BuiltIn::Inc)),
+                Token::Dec => stack.push(b(BuiltIn::Dec)),
+                Token::Add => stack.push(b(BuiltIn::Add)),
+                Token::Mul => stack.push(b(BuiltIn::Mul)),
+                Token::Div => stack.push(b(BuiltIn::Div)),
+                Token::Eq => stack.push(b(BuiltIn::Eq)),
+                Token::Lt => stack.push(b(BuiltIn::Lt)),
+                Token::Mod => stack.push(b(BuiltIn::Mod)),
+                Token::Dem => stack.push(b(BuiltIn::Dem)),
+                Token::Send => stack.push(b(BuiltIn::Send)),
+                Token::Neg => stack.push(b(BuiltIn::Neg)),
+                Token::S => stack.push(b(BuiltIn::S)),
+                Token::C => stack.push(b(BuiltIn::C)),
+                Token::B => stack.push(b(BuiltIn::B)),
+                Token::Pwr2 => stack.push(b(BuiltIn::Pwr2)),
+                Token::I => stack.push(b(BuiltIn::I)),
+                Token::Cons => stack.push(b(BuiltIn::Cons)),
+                Token::Head => stack.push(b(BuiltIn::Head)),
+                Token::Tail => stack.push(b(BuiltIn::Tail)),
+                Token::IsNil => stack.push(b(BuiltIn::IsNil)),
+                Token::Draw => stack.push(b(BuiltIn::Draw)),
+                Token::MultiDraw => stack.push(b(BuiltIn::MultiDraw)),
+                Token::If0 => stack.push(b(BuiltIn::If0)),
+                Token::Interact => stack.push(b(BuiltIn::Interact)),
 
                 Token::Ap => {
                     let x = stack.pop().unwrap();
                     let v = stack.pop().unwrap();
-                    stack.push(Value::Apply(Box::new(x), Box::new(v)));
+                    stack.push(ap(x, v));
                 }
             }
         }
