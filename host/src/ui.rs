@@ -93,13 +93,14 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     const VIEWPORT_CENTER_X: i32 = (VIEWPORT_WIDTH / 2) as i32;
     const VIEWPORT_CENTER_Y: i32 = (VIEWPORT_HEIGHT / 2) as i32;
     const MAX_SCALE: i32 = 10;
-    let COLORS: Vec<(u8, u8, u8)> = vec![
+    const COLORS: &[(u8, u8, u8)] = &[
         (39, 39, 39),
         (17, 100, 102),
         (255, 101, 47),
         (255, 228, 0),
         (20, 167, 108),
         (209, 232, 226),
+        (232, 90, 79),
     ];
 
     let app = App::default();

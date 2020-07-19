@@ -77,7 +77,7 @@ fn demodulate_value(negative: bool, iter: &mut dyn Iterator<Item = bool>) -> Res
     };
 
     let mut res = 0u64;
-    let bit_size = (used_nibbles * 4);
+    let bit_size = used_nibbles * 4;
     for i in 0..bit_size {
         if iter_next(iter)? {
             res |= 1u64 << (bit_size - i - 1);

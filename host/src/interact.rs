@@ -20,7 +20,7 @@ fn interact(
     assert_eq!(nil, NestedList::Nil);
     let flag = a.unwrap_number();
     if flag == 0 {
-        return (b, c);
+        (b, c)
     } else {
         let signal = mod_list(&c);
         let signal_data: Vec<_> = signal
@@ -28,18 +28,18 @@ fn interact(
             .map(|x| if x { b'1' } else { b'0' })
             .collect();
         let endpoint = String::from("https://icfpc2020-api.testkontur.ru/aliens/send");
-        let token = std::env::var("ICFPC_TEAM_TOKEN").ok();
-        let response = match request(&endpoint, token, signal_data) {
+        let token = std::env::var("ICFPC_TEAM_TOKEN").expect("Please set the ICFPC_TEAM_TOKEN env var");
+        let response = match request(&endpoint, &token, signal_data) {
             Ok(val) => val,
             Err(err) => panic!("request failed: {:?}", err),
         };
 
         let signal: Vec<_> = response
             .into_iter()
-            .map(|c| if c == b'1' { true } else { false })
+            .map(|c| c == b'1')
             .collect();
 
-        return interact(state, protocol, b, dem_list(&signal));
+        interact(state, protocol, b, dem_list(&signal))
     }
 }
 

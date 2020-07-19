@@ -8,14 +8,11 @@ fn string_from_bytes(bytes: &[u8]) -> String {
 
 #[tokio::main]
 pub async fn request(
-    base: &String,
-    token: Option<String>,
+    base: &str,
+    token: &str,
     content: Vec<u8>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-    let mut endpoint = match token {
-        None => base.clone(),
-        Some(token) => format!("{}?apiKey={}", base, token),
-    };
+    let mut endpoint = format!("{}?apiKey={}", base, token);
 
     let https = HttpsConnector::new();
     let client = Client::builder().build::<_, hyper::Body>(https);
@@ -34,8 +31,8 @@ pub async fn request(
 
         let body_data = body::to_bytes(res.body_mut()).await?;
 
-        print!("Server response: ");
-        println!("{:?}", body_data);
+        // print!("Server response: ");
+        // println!("{:?}", body_data);
 
         match res.status() {
             StatusCode::OK => break Ok(body_data.into_iter().collect()),
