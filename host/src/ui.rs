@@ -1,4 +1,4 @@
-use std::{cell::RefCell, path::Path, sync::Arc};
+use std::{cell::RefCell, collections::HashMap, path::Path, sync::Arc};
 
 use fltk::{app::*, draw::*, window::*};
 
@@ -10,6 +10,43 @@ use crate::types::*;
 #[derive(Default)]
 struct Data {
     vec: Vec<Picture>,
+}
+
+struct Blender {
+    alpha: f32,
+    colors: HashMap<Point, (u8, u8, u8)>,
+}
+
+impl Blender {
+    pub fn new(alpha: f32) -> Blender {
+        Blender {
+            alpha,
+            colors: HashMap::new(),
+        }
+    }
+
+    pub fn blend(&mut self, p: Point, r: u8, g: u8, b: u8) {
+        if let Some(&(br, bg, bb)) = self.colors.get(&p) {
+            self.colors.insert(
+                p,
+                (
+                    self.blend_component(r, br),
+                    self.blend_component(g, bg),
+                    self.blend_component(b, bb),
+                ),
+            );
+        } else {
+            self.colors.insert(p, (r, g, b));
+        }
+    }
+
+    fn blend_component(&self, c1: u8, c2: u8) -> u8 {
+        ((c1 as f32 * self.alpha) + (c2 as f32 * (1.0 - self.alpha))) as u8
+    }
+
+    pub fn get(&self, p: &Point) -> (u8, u8, u8) {
+        *self.colors.get(p).unwrap()
+    }
 }
 
 pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
@@ -87,20 +124,29 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
             if scale > MAX_SCALE {
                 scale = MAX_SCALE;
             }
-            for (i, p) in pics.into_iter().enumerate() {
+            let mut blender = Blender::new(0.7);
+            for (i, p) in pics.iter().enumerate() {
                 let (r, g, b) = if i >= COLORS.len() {
                     println!("WARNING: not enough colors");
                     (255, 0, 0)
                 } else {
                     COLORS[i + 1]
                 };
-                set_color_rgb(r, g, b);
+                for point in p.points.iter() {
+                    blender.blend(*point, r, g, b);
+                }
+            }
+            for p in pics {
                 if scale == 1 {
                     for point in p.points.iter() {
+                        let (r, g, b) = blender.get(point);
+                        set_color_rgb(r, g, b);
                         draw_point(VIEWPORT_CENTER_X + point.x, VIEWPORT_CENTER_Y + point.y);
                     }
                 } else {
                     for point in p.points.iter() {
+                        let (r, g, b) = blender.get(point);
+                        set_color_rgb(r, g, b);
                         draw_rectf(
                             VIEWPORT_CENTER_X + point.x * scale,
                             VIEWPORT_CENTER_Y + point.y * scale,

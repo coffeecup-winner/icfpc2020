@@ -1,6 +1,6 @@
 use crate::eval::*;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Point {
     pub x: i32,
     pub y: i32,
