@@ -73,38 +73,34 @@ impl std::fmt::Display for Picture {
 // Built-in functions except `ap`
 #[derive(Debug, PartialEq, Clone)]
 pub enum BuiltIn {
-    Inc,          // #5
-    Dec,          // #6
-    Add,          // #7
-    Mul,          // #9
-    Div,          // #10
-    Eq,           // #11
-    Lt,           // #12
-    Mod,          // #13 - ???
-    Dem,          // #14 - ???
-    Send,         // #15 - ???
-    Neg,          // #16
-    S,            // #18
-    C,            // #19
-    B,            // #20
-    True,         // #21
-    False,        // #22
-    Pwr2,         // #23 - ???
-    I,            // #24
-    Cons,         // #25
-    Head,         // #26
-    Tail,         // #27
-    Nil,          // #28
-    IsNil,        // #29
-    Draw,         // #32
-    Checkerboard, // #33
-    MultiDraw,    // #34
-    If0,          // #37
-    Interact,     // #38-39 - ???
+    Inc,       // #5
+    Dec,       // #6
+    Add,       // #7
+    Mul,       // #9
+    Div,       // #10
+    Eq,        // #11
+    Lt,        // #12
+    Mod,       // #13
+    Dem,       // #14
+    Send,      // #15
+    Neg,       // #16
+    S,         // #18
+    C,         // #19
+    B,         // #20
+    True,      // #21
+    False,     // #22
+    Pwr2,      // #23
+    I,         // #24
+    Cons,      // #25
+    Head,      // #26
+    Tail,      // #27
+    Nil,       // #28
+    IsNil,     // #29
+    Draw,      // #32
+    MultiDraw, // #34
+    If0,       // #37
+    Interact,  // #38-39
     F38,
-    StatelessDraw, // #40 - ???
-    StatefulDraw,  // #41 - ???
-    Galaxy,        // #42
 }
 
 #[allow(non_camel_case_types)]
@@ -737,13 +733,9 @@ impl State {
                 Token::Tail => stack.push(Value::BuiltIn(BuiltIn::Tail)),
                 Token::IsNil => stack.push(Value::BuiltIn(BuiltIn::IsNil)),
                 Token::Draw => stack.push(Value::BuiltIn(BuiltIn::Draw)),
-                Token::Checkerboard => stack.push(Value::BuiltIn(BuiltIn::Checkerboard)),
                 Token::MultiDraw => stack.push(Value::BuiltIn(BuiltIn::MultiDraw)),
                 Token::If0 => stack.push(Value::BuiltIn(BuiltIn::If0)),
                 Token::Interact => stack.push(Value::BuiltIn(BuiltIn::Interact)),
-                Token::StatelessDraw => stack.push(Value::BuiltIn(BuiltIn::StatelessDraw)),
-                Token::StatefulDraw => stack.push(Value::BuiltIn(BuiltIn::StatefulDraw)),
-                Token::Galaxy => stack.push(Value::BuiltIn(BuiltIn::Galaxy)),
 
                 Token::Ap => {
                     let x = stack.pop().unwrap();

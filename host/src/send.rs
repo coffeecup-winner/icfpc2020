@@ -1,11 +1,6 @@
-use http_body::Body as _;
 use hyper::header::LOCATION;
-use hyper::Uri;
 use hyper::{body, Body, Client, Method, Request, StatusCode};
 use hyper_tls::HttpsConnector;
-
-use std::env;
-use std::process;
 
 fn string_from_bytes(bytes: &[u8]) -> String {
     String::from(String::from_utf8_lossy(&bytes[..]))

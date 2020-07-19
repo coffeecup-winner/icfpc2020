@@ -28,16 +28,13 @@ pub enum Token {
     Nil,         // #28
     IsNil,       // #29
     // #30-31 is syntax sugar
-    Draw,         // #32
-    Checkerboard, // #33
-    MultiDraw,    // #34
+    Draw, // #32
+    // Checkerboard, // #33
+    MultiDraw, // #34
     // #35 - modlist is just a mod on lists
     // #36 - send(0) is an example
-    If0,           // #37
-    Interact,      // #38-39
-    StatelessDraw, // #40
-    StatefulDraw,  // #41
-    Galaxy,        // #42
+    If0,      // #37
+    Interact, // #38-39
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -99,9 +96,6 @@ fn parse(text: &str) -> Vec<Token> {
                 "multipledraw" => result.push(Token::MultiDraw),
                 "if0" => result.push(Token::If0),
                 "interact" => result.push(Token::Interact),
-                // StatelessDraw, // #40 - ???
-                // StatefulDraw, // #41 - ???
-                // Galaxy, // #42
                 s if s.starts_with(':') => result.push(Token::Var(Var::Temp(
                     s.strip_prefix(':').unwrap().parse::<u32>().unwrap(),
                 ))),

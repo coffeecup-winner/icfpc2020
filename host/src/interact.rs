@@ -43,11 +43,7 @@ pub fn run_interaction(state: &mut State, protocol: &str, x: i64, y: i64) -> Vec
     let var_new_state = Var::Named("__new_state".to_string());
     state.interpret(Stmt {
         var: var_new_state.clone(),
-        code: vec![
-            Token::Ap,
-            Token::Head,
-            Token::Var(var_result),
-        ]
+        code: vec![Token::Ap, Token::Head, Token::Var(var_result)],
     });
     let v = state.eval_deep(&var_new_state);
     state.insert(var_state, v);
