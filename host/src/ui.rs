@@ -2,9 +2,10 @@ use std::{cell::RefCell, path::Path, sync::Arc};
 
 use fltk::{app::*, draw::*, window::*};
 
-use crate::eval::{Picture, State};
+use crate::eval::State;
 use crate::interact::run_interaction;
 use crate::syntax::parse_line;
+use crate::types::*;
 
 #[derive(Default)]
 struct Data {
@@ -65,6 +66,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     window.show();
 
     let (mut last_x, mut last_y) = (-1, -1);
+    let mut interaction_state = NestedList::Nil;
     while app.wait().unwrap() {
         // println!("{:?}", event());
         match event() {
@@ -74,7 +76,14 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                 y -= window.y();
                 if last_x != x || last_y != y {
                     println!("Clicked on ({}, {})", x, y);
-                    let pics = run_interaction(&mut state, &protocol, x as i64, y as i64);
+                    let (new_state, pics) = run_interaction(
+                        &mut state,
+                        &protocol,
+                        interaction_state,
+                        x as i64,
+                        y as i64,
+                    );
+                    interaction_state = new_state;
 
                     pics_data.borrow_mut().vec = pics;
 

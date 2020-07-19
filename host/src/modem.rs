@@ -1,9 +1,4 @@
-#[derive(Debug, PartialEq, Clone)]
-pub enum NestedList {
-    Nil,
-    Cons(Box<NestedList>, Box<NestedList>),
-    Number(i64),
-}
+use crate::types::NestedList;
 
 pub fn mod_list(list: &NestedList) -> Vec<bool> {
     let mut res: Vec<bool> = vec![];

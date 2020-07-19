@@ -5,10 +5,12 @@ mod interact;
 mod modem;
 mod send;
 mod syntax;
+mod types;
 mod ui;
 
-use crate::eval::{Picture, State};
+use crate::eval::State;
 use crate::syntax::*;
+use crate::types::*;
 use crate::ui::ui_main;
 
 fn print_pictures(pics: &[Picture]) {
@@ -33,7 +35,8 @@ fn run_test(file: String) {
             let picture = parse_picture(l);
             state.interpret(picture);
             let v = state.eval_v(&Var::Named("picture".to_string()));
-            let pics = state.eval_picture_list(v);
+            let list = NestedList::from_value(v);
+            let pics = Picture::from_nested_list(list);
             print_pictures(&pics);
         } else {
             let (expr, expected) = parse_test(line);

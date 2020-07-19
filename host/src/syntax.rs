@@ -10,9 +10,6 @@ pub enum Token {
     Div,         // #10
     Eq,          // #11
     Lt,          // #12
-    Mod,         // #13
-    Dem,         // #14
-    Send,        // #15
     Neg,         // #16
     Ap,          // #17
     S,           // #18
@@ -27,14 +24,6 @@ pub enum Token {
     Tail,        // #27
     Nil,         // #28
     IsNil,       // #29
-    // #30-31 is syntax sugar
-    Draw, // #32
-    // Checkerboard, // #33
-    MultiDraw, // #34
-    // #35 - modlist is just a mod on lists
-    // #36 - send(0) is an example
-    If0,      // #37
-    Interact, // #38-39
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -72,9 +61,6 @@ fn parse(text: &str) -> Vec<Token> {
                 "div" => result.push(Token::Div),
                 "eq" => result.push(Token::Eq),
                 "lt" => result.push(Token::Lt),
-                "mod" => result.push(Token::Mod),
-                "dem" => result.push(Token::Dem),
-                "send" => result.push(Token::Send),
                 "neg" => result.push(Token::Neg),
                 "ap" => result.push(Token::Ap),
                 "s" => result.push(Token::S),
@@ -91,11 +77,6 @@ fn parse(text: &str) -> Vec<Token> {
                 "isnil" => result.push(Token::IsNil),
                 "(" => new_item = true,
                 "," => new_item = true,
-                "draw" => result.push(Token::Draw),
-                // Checkerboard, // #33
-                "multipledraw" => result.push(Token::MultiDraw),
-                "if0" => result.push(Token::If0),
-                "interact" => result.push(Token::Interact),
                 s if s.starts_with(':') => result.push(Token::Var(Var::Temp(
                     s.strip_prefix(':').unwrap().parse::<u32>().unwrap(),
                 ))),
