@@ -2,9 +2,11 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
+type VarMap = HashMap<String, Rc<Value>>;
+
 #[derive(Debug, Default)]
 struct State {
-    vars: HashMap<String, Rc<Value>>,
+    vars: VarMap,
 }
 
 #[derive(Debug)]
@@ -153,7 +155,7 @@ struct ParseResult {
     ast: Rc<Value>,
 }
 
-fn parse_line(line: &str) -> Result<ParseResult, ()> {
+fn parse_line(line: &str, vars: &VarMap) -> Result<ParseResult, ()> {
     use Token::*;
 
     let mut var_name: Option<String> = None;
@@ -202,7 +204,13 @@ fn parse_line(line: &str) -> Result<ParseResult, ()> {
                 let b = stack.pop().unwrap();
                 stack.push(Value::apply(a, b));
             }
-            Atom(name) => stack.push(Value::atom(String::from(name))),
+            Atom(name) => {
+                if let Some(var) = vars.get(name) {
+                    stack.push(var.clone())
+                } else {
+                    stack.push(Value::atom(String::from(name)))
+                }
+            }
             Number(n) => stack.push(Value::number(n)),
             ListClose => nesting_stack.push(vec![Value::nil()]),
             ListSep => {
@@ -256,7 +264,7 @@ fn main() -> Result<(), ()> {
             .call(&mut state, b.clone())?
     );
 
-    let parsed = parse_line("ap cons ( 1 , 2 , ( 3 ) , 4 )")?;
+    let parsed = parse_line("ap cons ( 1 , 2 , ( 3 ) , 4 )", &state.vars)?;
     println!("{:?}", parsed);
 
     Ok(())
