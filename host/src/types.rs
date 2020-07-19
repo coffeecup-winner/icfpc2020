@@ -88,9 +88,11 @@ impl PictureBuilder {
                     y: y as i32,
                 });
             }
+            let max = |a, b| if a > b { a } else { b };
+            // We calculate width and height this way since the picture will not be re-centered when displaying
             Picture {
-                width: (max_x - min_x) as u32,
-                height: (max_y - min_y) as u32,
+                width: (max(max_x, -min_x) * 2) as u32,
+                height: (max(max_y, -min_y) * 2) as u32,
                 points: pic_points,
             }
         }

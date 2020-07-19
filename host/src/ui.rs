@@ -144,7 +144,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                 scale = MAX_SCALE;
             }
             let mut blender = Blender::new(0.7);
-            for (i, p) in pics.iter().enumerate() {
+            for (i, p) in pics.iter().rev().enumerate() {
                 let (r, g, b) = if i + 1 >= COLORS.len() {
                     println!("WARNING: not enough colors");
                     (255, 0, 0)
