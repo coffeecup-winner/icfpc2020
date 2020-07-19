@@ -70,7 +70,6 @@ pub fn ui_main(file: String) -> std::io::Result<()> {
                 if last_x != x || last_y != y {
                     println!("Clicked on ({}, {})", x, y);
                     let pics = run_interaction(&mut state, &protocol, x as i64, y as i64);
-                    println!("{:?}", pics);
 
                     pics_data.borrow_mut().vec = pics;
 

@@ -32,7 +32,7 @@ fn run_test(file: String) {
         } else if let Some(l) = line.strip_prefix("DRAW ") {
             let picture = parse_picture(l);
             state.interpret(picture);
-            let v = state.eval(Var::Named("picture".to_string()));
+            let v = state.eval(&Var::Named("picture".to_string()));
             let pics = state.eval_picture_list(v);
             print_pictures(&pics);
         } else {
@@ -40,8 +40,8 @@ fn run_test(file: String) {
             state.interpret(expr);
             state.interpret(expected);
             assert_eq!(
-                state.eval(Var::Named("expr".to_string())),
-                state.eval(Var::Named("expected".to_string()))
+                state.eval(&Var::Named("expr".to_string())),
+                state.eval(&Var::Named("expected".to_string()))
             );
         }
     }
@@ -66,7 +66,7 @@ fn main() -> io::Result<()> {
             let stmt = parse_line(line);
             state.interpret(stmt);
         }
-        println!("galaxy: {:?}", state.eval(Var::Named("galaxy".to_string())));
+        println!("galaxy: {:?}", state.eval(&Var::Named("galaxy".to_string())));
     }
     Ok(())
 }

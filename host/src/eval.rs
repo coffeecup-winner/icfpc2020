@@ -137,9 +137,22 @@ impl State {
         State::default()
     }
 
-    pub fn eval(&mut self, var: Var) -> Value {
-        let v = self.vars.get(&var).unwrap().clone();
+    pub fn contains(&self, var: &Var) -> bool {
+        self.vars.contains_key(var)
+    }
+
+    pub fn insert(&mut self, var: Var, val: Value) {
+        self.vars.insert(var, val);
+    }
+
+    pub fn eval(&self, var: &Var) -> Value {
+        let v = self.vars.get(var).unwrap().clone();
         self.eval_value(v, true)
+    }
+
+    pub fn eval_deep(&self, var: &Var) -> Value {
+        let v = self.vars.get(var).unwrap().clone();
+        self.eval_value(v, false)
     }
 
     // This will put a single picture into a vector as well
@@ -150,12 +163,19 @@ impl State {
             let mut curr = val.clone();
             let mut result = vec![];
             loop {
-                if let Value::Apply(f0, arg0) = curr {
-                    if let Value::Apply(f1, arg1) = *f0 {
+                if let Value::Partial1(PartialAp::Cons_1, head, tail) = curr.clone() {
+                    if let Value::Picture(p) = *head {
+                        result.push(p);
+                        curr = *tail;
+                        continue;
+                    }
+                }
+                if let Value::Apply(f0, tail) = curr {
+                    if let Value::Apply(f1, head) = *f0 {
                         if let Value::BuiltIn(BuiltIn::Cons) = *f1 {
-                            if let Value::Picture(p) = *arg1 {
+                            if let Value::Picture(p) = *head {
                                 result.push(p);
-                                curr = *arg0;
+                                curr = *tail;
                                 continue;
                             }
                         }

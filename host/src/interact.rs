@@ -4,6 +4,10 @@ use crate::syntax::*;
 pub fn run_interaction(state: &mut State, protocol: &str, x: i64, y: i64) -> Vec<Picture> {
     let var_protocol = Var::Named(protocol.to_string());
     let var_result = Var::Named("__result".to_string());
+    let var_state = Var::Named("__state".to_string());
+    if !state.contains(&var_state) {
+        state.insert(var_state.clone(), Value::BuiltIn(BuiltIn::Nil));
+    }
     state.interpret(Stmt {
         var: var_result.clone(),
         code: vec![
@@ -12,7 +16,7 @@ pub fn run_interaction(state: &mut State, protocol: &str, x: i64, y: i64) -> Vec
             Token::Ap,
             Token::Interact,
             Token::Var(var_protocol),
-            Token::Nil,
+            Token::Var(var_state.clone()),
             Token::Ap,
             Token::Ap,
             Token::Cons,
@@ -20,7 +24,8 @@ pub fn run_interaction(state: &mut State, protocol: &str, x: i64, y: i64) -> Vec
             Token::Number(y),
         ],
     });
-    state.eval(var_result.clone());
+    state.eval(&var_result);
+
     let var_picture = Var::Named("__picture".to_string());
     state.interpret(Stmt {
         var: var_picture.clone(),
@@ -29,9 +34,23 @@ pub fn run_interaction(state: &mut State, protocol: &str, x: i64, y: i64) -> Vec
             Token::Head,
             Token::Ap,
             Token::Tail,
-            Token::Var(var_result),
+            Token::Var(var_result.clone()),
         ],
     });
-    let v = state.eval(var_picture);
-    state.eval_picture_list(v)
+    let v = state.eval_deep(&var_picture);
+    let pics = state.eval_picture_list(v);
+
+    let var_new_state = Var::Named("__new_state".to_string());
+    state.interpret(Stmt {
+        var: var_new_state.clone(),
+        code: vec![
+            Token::Ap,
+            Token::Head,
+            Token::Var(var_result),
+        ]
+    });
+    let v = state.eval_deep(&var_new_state);
+    state.insert(var_state, v);
+
+    pics
 }
