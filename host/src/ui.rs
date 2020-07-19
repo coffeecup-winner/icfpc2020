@@ -112,13 +112,17 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
         "Galaxy Explorer",
     );
     window.set_type(WindowType::Double);
-    window = window.center_screen();
-    let pics_data = Arc::new(RefCell::new(Data::default()));
+    let window = Arc::new(RefCell::new(window.center_screen()));
+
     let scale = Arc::new(RefCell::new(1 as i32));
+
+    let pics_data = Arc::new(RefCell::new(Data::default()));
+    let mut interaction_state = NestedList::Nil;
+    let mut history: Vec<(NestedList, NestedList)> = vec![];
 
     let pics_capture = pics_data.clone();
     let scale_capture = scale.clone();
-    window.draw(Box::new(move || {
+    window.borrow_mut().draw(Box::new(move || {
         let pics = &pics_capture.borrow().vec;
         let (r, g, b) = COLORS[0];
         set_color_rgb(r, g, b);
@@ -165,32 +169,22 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
         *scale_capture.borrow_mut() = scale;
     }));
 
-    window.end();
-    window.show();
+    if &protocol == "galaxy" {
+        let (new_state, pics) =
+            run_interaction(&mut state, &protocol, interaction_state.clone(), 0, 0);
+        history.push((new_state.clone(), pics.clone()));
+        interaction_state = new_state;
+        pics_data.borrow_mut().vec = PictureBuilder::from_nested_list(pics);
+    }
 
-    let mut first_coords = if &protocol == "galaxy" {
-        Some((0, 0))
-    } else {
-        None
-    };
-    let mut interaction_state = NestedList::Nil;
-    let mut prev_state = NestedList::Nil;
-    let mut prev_coords = (0, 0);
-    let mut just_loaded = false;
-    while app.wait().unwrap() {
-        // println!("{:?}", event());
-        match event() {
+    let window_ = window.clone();
+    window.borrow_mut().handle(Box::new(move |e| -> bool {
+        match e {
             fltk::enums::Event::Released => {
-                just_loaded = false;
                 let (mut x, mut y) = get_mouse();
                 // Coords processing
-                x = x - window.x() - VIEWPORT_CENTER_X;
-                y = y - window.y() - VIEWPORT_CENTER_Y;
-                if let Some((first_x, first_y)) = first_coords {
-                    x = first_x;
-                    y = first_y;
-                    first_coords = None;
-                }
+                x = x - window_.borrow().x() - VIEWPORT_CENTER_X;
+                y = y - window_.borrow().y() - VIEWPORT_CENTER_Y;
                 let scale = *scale.borrow();
                 if scale > 1 {
                     x = if x < 0 {
@@ -213,95 +207,95 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                     x as i64,
                     y as i64,
                 );
-                prev_state = interaction_state;
-                prev_coords = (x, y);
+                if history.last() != Some(&(new_state.clone(), pics.clone())) {
+                    history.push((new_state.clone(), pics.clone()));
+                }
                 interaction_state = new_state;
+                pics_data.borrow_mut().vec = PictureBuilder::from_nested_list(pics);
 
-                pics_data.borrow_mut().vec = pics;
+                window_.borrow_mut().redraw();
 
-                window.redraw();
+                true
             }
-            fltk::enums::Event::KeyUp => match event_key() {
-                fltk::enums::Key::Enter => {
-                    just_loaded = false;
-                    println!("Saving the current picture...");
-                    let mut img = bmp::Image::new(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
-                    let mut img_data = vec![];
+            fltk::enums::Event::KeyUp => {
+                match event_key() {
+                    fltk::enums::Key::Enter => {
+                        println!("Saving the current picture...");
+                        let mut img = bmp::Image::new(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+                        let mut img_data = vec![];
 
-                    let pics = &pics_data.borrow().vec;
-                    for p in pics.iter() {
-                        for point in p.points.iter() {
-                            img.set_pixel(
-                                point.x as u32,
-                                point.y as u32,
-                                bmp::Pixel::new(0, 0, 255),
-                            );
+                        let pics = &pics_data.borrow().vec;
+                        for p in pics.iter() {
+                            for point in p.points.iter() {
+                                img.set_pixel(
+                                    point.x as u32,
+                                    point.y as u32,
+                                    bmp::Pixel::new(0, 0, 255),
+                                );
+                            }
                         }
-                    }
 
-                    img.to_writer(&mut img_data).unwrap();
-                    img.save("./current.bmp").unwrap();
-                }
-                k => {
-                    if k == fltk::enums::Key::from_i32(0xffc2) {
-                        // F5 - save
-                        just_loaded = false;
-                        println!("Saving state...");
-                        let data = NestedList::Cons(
-                            Box::new(prev_state.clone()),
-                            Box::new(NestedList::Cons(
-                                Box::new(NestedList::Number(prev_coords.0 as i64)),
-                                Box::new(NestedList::Number(prev_coords.1 as i64)),
-                            )),
-                        );
-                        let serialized = mod_list(&data);
-                        let str: Vec<u8> = serialized
-                            .into_iter()
-                            .map(|b| if b { b'1' } else { b'0' })
-                            .collect();
-                        std::fs::write("./save.dat", str)?;
-                    } else if k == fltk::enums::Key::from_i32(0xffc5) {
-                        // F8 - load
-                        if !just_loaded {
+                        img.to_writer(&mut img_data).unwrap();
+                        img.save("./current.bmp").unwrap();
+                        true
+                    }
+                    fltk::enums::Key::BackSpace => {
+                        println!("Going back...");
+                        history.pop();
+                        if let Some((st, pics)) = history.last() {
+                            interaction_state = st.clone();
+                            pics_data.borrow_mut().vec = PictureBuilder::from_nested_list(pics.clone());
+                            window_.borrow_mut().redraw();
+                        }
+                        true
+                    }
+                    k => {
+                        if k == fltk::enums::Key::from_i32(0xffc2) {
+                            // F5 - save
+                            if let Some((st, pics)) = history.last() {
+                                println!("Saving state...");
+                                let data =
+                                    NestedList::Cons(Box::new(st.clone()), Box::new(pics.clone()));
+                                let serialized = mod_list(&data);
+                                let str: Vec<u8> = serialized
+                                    .into_iter()
+                                    .map(|b| if b { b'1' } else { b'0' })
+                                    .collect();
+                                std::fs::write("./save.dat", str).unwrap();
+                            }
+                            true
+                        } else if k == fltk::enums::Key::from_i32(0xffc5) {
+                            // F8 - load
                             println!("Loading state...");
-                            let file = std::fs::read("./save.dat")?;
-                            let serialized: Vec<_> = file
-                                .into_iter()
-                                .map(|c| if c == b'1' { true } else { false })
-                                .collect();
+                            let file = std::fs::read("./save.dat").unwrap();
+                            let serialized: Vec<_> =
+                                file.into_iter().map(|c| c == b'1').collect();
                             let list = dem_list(&serialized);
-                            let (st, coords) = list.unwrap_cons();
-                            let (x, y) = coords.unwrap_cons();
+                            let (st, pics) = list.unwrap_cons();
+
+                            if history.last() != Some(&(st.clone(), pics.clone())) {
+                                history.push((st.clone(), pics.clone()));
+                            }
+
                             interaction_state = st;
-                            let x = x.unwrap_number() as i32;
-                            let y = y.unwrap_number() as i32;
-
-                            first_coords = None;
-
-                            let (new_state, pics) = run_interaction(
-                                &mut state,
-                                &protocol,
-                                interaction_state.clone(),
-                                x as i64,
-                                y as i64,
-                            );
-                            prev_state = interaction_state;
-                            prev_coords = (x, y);
-                            interaction_state = new_state;
-
-                            pics_data.borrow_mut().vec = pics;
-
-                            window.redraw();
-
-                            just_loaded = true;
+                            pics_data.borrow_mut().vec = PictureBuilder::from_nested_list(pics);
+                            window_.borrow_mut().redraw();
+                            true
+                        } else {
+                            println!("Unhandled key: {:?}", k);
+                            false
                         }
-                    } else {
-                        println!("Unhandled key: {:?}", k);
                     }
                 }
-            },
-            _ => {}
+            }
+            _ => false
         }
-    }
+    }));
+
+    window.borrow().end();
+    window.borrow_mut().show();
+
+    app.run().unwrap();
+
     Ok(())
 }
