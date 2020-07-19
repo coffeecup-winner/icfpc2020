@@ -23,15 +23,15 @@ pub enum Value {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Point {
-    x: u32,
-    y: u32,
+    pub x: u32,
+    pub y: u32,
 }
 
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct Picture {
-    width: u32,
-    height: u32,
-    points: Vec<Point>,
+    pub width: u32,
+    pub height: u32,
+    pub points: Vec<Point>,
 }
 
 impl Picture {

@@ -3,12 +3,13 @@ use std::{env, fs, io};
 mod eval;
 mod interact;
 mod modem;
-mod syntax;
 mod send;
+mod syntax;
+mod ui;
 
 use crate::eval::{Picture, State};
-use crate::interact::*;
 use crate::syntax::*;
+use crate::ui::ui_main;
 
 fn print_pictures(pics: &[Picture]) {
     if pics.len() == 1 {
@@ -60,10 +61,7 @@ fn main() -> io::Result<()> {
             println!("galaxy: {:?}", state.eval(Var::Named("galaxy".to_string())));
         }
     } else {
-        let mut state = State::new();
-        state.interpret(parse_line("statelessdraw = ap ap c ap ap b b ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c ap ap b cons ap ap c cons nil nil"));
-        let pics = run_interaction(state, "statelessdraw", 1, 1);
-        print_pictures(&pics);
+        ui_main()?;
     }
     Ok(())
 }

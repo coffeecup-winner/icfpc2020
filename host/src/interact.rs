@@ -1,7 +1,7 @@
 use crate::eval::*;
 use crate::syntax::*;
 
-pub fn run_interaction(mut state: State, protocol: &str, x: i64, y: i64) -> Vec<Picture> {
+pub fn run_interaction(state: &mut State, protocol: &str, x: i64, y: i64) -> Vec<Picture> {
     let var_protocol = Var::Named(protocol.to_string());
     let var_result = Var::Named("__result".to_string());
     state.interpret(Stmt {
