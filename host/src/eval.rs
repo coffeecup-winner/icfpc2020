@@ -105,7 +105,7 @@ impl State {
         let mut curr = val.clone();
         loop {
             let new = self.eval_core(curr.clone());
-            if new == curr {
+            if Rc::ptr_eq(&new, &curr) {
                 let value = new.borrow().val.clone();
                 val.borrow_mut().val = value;
                 val.borrow_mut().computed = true;

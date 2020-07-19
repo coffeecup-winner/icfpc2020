@@ -46,5 +46,5 @@ pub fn run_interaction(
 ) -> (NestedList, Vec<Picture>) {
     let var_protocol = Var::Named(protocol.to_string());
     let (state, pic_list) = interact(state, &var_protocol, st, x, y);
-    (*state, Picture::from_nested_list(*pic_list))
+    (*state, PictureBuilder::from_nested_list(*pic_list))
 }

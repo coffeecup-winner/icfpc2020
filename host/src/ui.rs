@@ -66,6 +66,11 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     window.show();
 
     let (mut last_x, mut last_y) = (-1, -1);
+    let mut first_coords = if &protocol == "galaxy" {
+        Some((0, 0))
+    } else {
+        None
+    };
     let mut interaction_state = NestedList::Nil;
     while app.wait().unwrap() {
         // println!("{:?}", event());
@@ -74,6 +79,11 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                 let (mut x, mut y) = get_mouse();
                 x -= window.x();
                 y -= window.y();
+                if let Some((first_x, first_y)) = first_coords {
+                    x = first_x;
+                    y = first_y;
+                    first_coords = None;
+                }
                 if last_x != x || last_y != y {
                     println!("Clicked on ({}, {})", x, y);
                     let (new_state, pics) = run_interaction(

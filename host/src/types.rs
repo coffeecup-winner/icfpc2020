@@ -8,27 +8,19 @@ pub struct Point {
 
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct Picture {
+    pub offset_x: i64,
+    pub offset_y: i64,
     pub width: u32,
     pub height: u32,
     pub points: Vec<Point>,
 }
 
-impl Picture {
-    pub fn new() -> Self {
-        Self::default()
-    }
+#[derive(Debug, Default)]
+pub struct PictureBuilder {
+    points: Vec<(i64, i64)>,
+}
 
-    pub fn add(&mut self, x: u32, y: u32) {
-        // TODO: maybe calculate these later if slow
-        if x >= self.width {
-            self.width = x + 1;
-        }
-        if y >= self.height {
-            self.height = y + 1;
-        }
-        self.points.push(Point { x, y });
-    }
-
+impl PictureBuilder {
     pub fn from_nested_list(mut list: NestedList) -> Vec<Picture> {
         let mut result = vec![];
         loop {
@@ -45,7 +37,7 @@ impl Picture {
     }
 
     fn from_nested_list_one(mut list: NestedList) -> Picture {
-        let mut picture = Picture::new();
+        let mut points = vec![];
         loop {
             // we expect a list of pairs here
             match list {
@@ -55,7 +47,7 @@ impl Picture {
                         NestedList::Cons(x, y) => {
                             if let NestedList::Number(x) = *x {
                                 if let NestedList::Number(y) = *y {
-                                    picture.add(x as u32, y as u32);
+                                    points.push((x, y));
                                 } else {
                                     panic!("Invalid list")
                                 }
@@ -70,7 +62,46 @@ impl Picture {
                 _ => panic!("Invalid list"),
             }
         }
-        picture
+        Self::from_points(points)
+    }
+
+    fn from_points(points: Vec<(i64, i64)>) -> Picture {
+        if points.is_empty() {
+            Picture::default()
+        } else {
+            let (mut min_x, mut min_y) = points[0];
+            let (mut max_x, mut max_y) = points[0];
+            for &(x, y) in points.iter() {
+                if min_x > x {
+                    min_x = x;
+                }
+                if max_x < x {
+                    max_x = x;
+                }
+                if min_y > y {
+                    min_y = y;
+                }
+                if max_y < y {
+                    max_y = y;
+                }
+            }
+            let offset_x = -min_x;
+            let offset_y = -min_y;
+            let mut pic_points = vec![];
+            for (x, y) in points {
+                pic_points.push(Point {
+                    x: (x + offset_x) as u32,
+                    y: (y + offset_y) as u32,
+                });
+            }
+            Picture {
+                offset_x,
+                offset_y,
+                width: (max_x - min_x) as u32,
+                height: (max_y - min_y) as u32,
+                points: pic_points,
+            }
+        }
     }
 }
 

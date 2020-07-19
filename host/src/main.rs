@@ -36,7 +36,7 @@ fn run_test(file: String) {
             state.interpret(picture);
             let v = state.eval_v(&Var::Named("picture".to_string()));
             let list = NestedList::from_value(v);
-            let pics = Picture::from_nested_list(list);
+            let pics = PictureBuilder::from_nested_list(list);
             print_pictures(&pics);
         } else {
             let (expr, expected) = parse_test(line);
