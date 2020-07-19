@@ -1,13 +1,35 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 type VarMap = HashMap<String, Rc<Value>>;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct State {
     vars: VarMap,
 }
+
+#[derive(Debug)]
+struct Application {
+    cache: RefCell<Option<Rc<Value>>>,
+    f: Rc<Value>,
+    x: Rc<Value>,
+}
+
+impl Application {
+    fn eval_uncached(&self, state: &mut State) -> Rc<Value> {
+        let f = Value::eval(&self.f, state);
+        f.call(state, self.x.clone())
+    }
+
+    fn eval(&self, state: &mut State) -> Rc<Value> {
+        self.cache.borrow_mut()
+            .get_or_insert_with(|| self.eval_uncached(state))
+            .clone()
+    }
+}
+
 
 #[derive(Debug)]
 enum Value {
@@ -18,16 +40,42 @@ enum Value {
     True,
     False,
     Cons(Rc<Value>, Rc<Value>),
-    Apply(Rc<Value>, Rc<Value>),
+    Application(Application)
 }
 
 impl Value {
-    fn call(&self, state: &mut State, arg: Rc<Value>) -> Result<Rc<Value>, ()> {
+    fn call(&self, state: &mut State, arg: Rc<Value>) -> Rc<Value> {
         match self {
-            Value::Lambda(named_lambda) => Ok((named_lambda.lambda)(arg, state)),
+            Value::Application(appl) => Value::call(&appl.eval(state), state, arg),
+            Value::Atom(name) => match state.vars.get(name) {
+                Some(rc) => rc.clone().call(state, arg),
+                None => panic!("no such atom: {}", name),
+            },
+            Value::Lambda(named_lambda) => (named_lambda.lambda)(arg, state),
             // callins a cons is like applying something to the pair
-            Value::Cons(a, b) => Ok(Value::apply(Value::apply(arg, a.clone()), b.clone())),
-            _ => Err(()),
+            Value::Cons(a, b) => Value::apply(Value::apply(arg, a.clone()), b.clone()),
+            // ap nil x0   =   t
+            Value::Nil => Value::make_true(),
+            // ap ap t x0 x1   =   x0
+            Value::True => Value::lambda("true'", move |_b, _| arg.clone()),
+            // ap ap f x0 x1   =   x1
+            Value::False => Value::lambda("false'", move |b, _| b.clone()),
+            _ => panic!("tried to call {:?}", self),
+        }
+    }
+
+    fn eval(rc: &Rc<Value>, state: &mut State) -> Rc<Value> {
+        match &**rc {
+            Value::Application(appl) => appl.eval(state),
+            _ => rc.clone(),
+        }
+    }
+
+    fn eval_number(rc: &Rc<Value>, state: &mut State) -> i64 {
+        let val = Value::eval(rc, state);
+        match *val {
+            Value::Number(n) => n,
+            _ => panic!("evaluated as a number: {:#?}", val),
         }
     }
 
@@ -50,7 +98,7 @@ impl Value {
     }
 
     fn apply(f: Rc<Value>, x: Rc<Value>) -> Rc<Value> {
-        return Rc::new(Value::Apply(f, x));
+        return Rc::new(Value::Application(Application { cache: RefCell::new(None), f, x }));
     }
 
     fn atom(atom: String) -> Rc<Value> {
@@ -59,6 +107,22 @@ impl Value {
 
     fn nil() -> Rc<Value> {
         return Rc::new(Value::Nil);
+    }
+
+    fn make_true() -> Rc<Value> {
+        return Rc::new(Value::True);
+    }
+
+    fn make_false() -> Rc<Value> {
+        return Rc::new(Value::False);
+    }
+
+    fn make_bool(val: bool) -> Rc<Value> {
+        if val {
+            Value::make_true()
+        } else {
+            Value::make_false()
+        }
     }
 }
 
@@ -74,24 +138,6 @@ impl fmt::Debug for NamedLambda {
             .field("name", &self.name)
             .finish()
     }
-}
-
-fn builtin_cons() -> Rc<Value> {
-    Value::lambda("cons", move |a, _| {
-        Value::lambda("cons'", move |b, _| Value::cons(a.clone(), b.clone()))
-    })
-}
-
-fn builtin_true() -> Rc<Value> {
-    Value::lambda("true", move |a, _| {
-        Value::lambda("true'", move |_b, _| a.clone())
-    })
-}
-
-fn builtin_false() -> Rc<Value> {
-    Value::lambda("false", move |_a, _| {
-        Value::lambda("false'", move |b, _| b.clone())
-    })
 }
 
 pub enum Token<'a> {
@@ -143,11 +189,6 @@ where
         })
     }
 }
-
-// use std::{env, fs, io};
-// use std::fs::File;
-// use std::io::BufReader;
-// use std::path::Path;
 
 #[derive(Debug)]
 struct ParseResult {
@@ -232,8 +273,6 @@ fn parse_line(line: &str, vars: &VarMap) -> Result<ParseResult, ()> {
         }
     }
 
-    println!("{:?}", nesting_stack);
-
     assert!(nesting_stack.len() == 1);
     let top_stack = &nesting_stack[0];
     match top_stack.as_slice() {
@@ -245,27 +284,202 @@ fn parse_line(line: &str, vars: &VarMap) -> Result<ParseResult, ()> {
     }
 }
 
+fn builtin_cons() -> Rc<Value> {
+    Value::lambda("cons", move |a, _| {
+        Value::lambda("cons'", move |b, _| Value::cons(a.clone(), b.clone()))
+    })
+}
+
+fn builtin_car(true_impl: Rc<Value>) -> Rc<Value> {
+    Value::lambda("car", move |elem, _| {
+        Value::apply(true_impl.clone(), elem.clone())
+    })
+}
+
+fn builtin_cdr(false_impl: Rc<Value>) -> Rc<Value> {
+    Value::lambda("cdr", move |elem, _| {
+        Value::apply(false_impl.clone(), elem.clone())
+    })
+}
+
+fn builtin_isnil(true_impl: Rc<Value>, false_impl: Rc<Value>) -> Rc<Value> {
+    Value::lambda("isnil", move |elem, _| {
+        match *elem {
+            Value::Nil => true_impl.clone(),
+            _ => false_impl.clone(),
+        }
+    })
+}
+
+fn builtin_i() -> Rc<Value> {
+    Value::lambda("i", move |elem, _| {
+        elem.clone()
+    })
+}
+
+fn builtin_inc() -> Rc<Value> {
+    Value::lambda("inc", move |elem, state| {
+        Value::number(Value::eval_number(&elem, state) + 1)
+    })
+}
+
+fn builtin_dec() -> Rc<Value> {
+    Value::lambda("dec", move |elem, state| {
+        Value::number(Value::eval_number(&elem, state) - 1)
+    })
+}
+
+fn builtin_pwr2() -> Rc<Value> {
+    Value::lambda("pwr2", move |elem, state| {
+        Value::number(1i64 << Value::eval_number(&elem, state))
+    })
+}
+
+fn builtin_add() -> Rc<Value> {
+    Value::lambda("add", move |a, _| {
+        Value::lambda("add'", move |b, state| {
+            let a = Value::eval_number(&a, state);
+            let b = Value::eval_number(&b, state);
+            Value::number(a + b)
+        })
+    })
+}
+
+fn builtin_mul() -> Rc<Value> {
+    Value::lambda("mul", move |a, _| {
+        Value::lambda("mul'", move |b, state| {
+            let a = Value::eval_number(&a, state);
+            let b = Value::eval_number(&b, state);
+            Value::number(a * b)
+        })
+    })
+}
+
+fn builtin_div() -> Rc<Value> {
+    Value::lambda("div", move |a, _| {
+        Value::lambda("div'", move |b, state| {
+            let a = Value::eval_number(&a, state);
+            let b = Value::eval_number(&b, state);
+            Value::number(a / b)
+        })
+    })
+}
+
+fn builtin_eq() -> Rc<Value> {
+    Value::lambda("eq", move |a, _| {
+        Value::lambda("eq'", move |b, state| {
+            let a = Value::eval_number(&a, state);
+            let b = Value::eval_number(&b, state);
+            Value::make_bool(a == b)
+        })
+    })
+}
+
+fn builtin_lt() -> Rc<Value> {
+    Value::lambda("lt", move |a, _| {
+        Value::lambda("lt'", move |b, state| {
+            let a = Value::eval_number(&a, state);
+            let b = Value::eval_number(&b, state);
+            Value::make_bool(a < b)
+        })
+    })
+}
+
+fn builtin_neg() -> Rc<Value> {
+    Value::lambda("neg", move |arg, state| {
+        Value::number(-Value::eval_number(&arg, state))
+    })
+}
+
+fn builtin_s() -> Rc<Value> {
+    Value::lambda("s", move |a, _| {
+        Value::lambda("s'", move |b, _| {
+            let a = a.clone();
+            Value::lambda("s''", move |c, _| {
+                let left = Value::apply(a.clone(), c.clone());
+                let right = Value::apply(b.clone(), c.clone());
+                Value::apply(left, right)
+            })
+        })
+    })
+}
+
+fn builtin_c() -> Rc<Value> {
+    Value::lambda("c", move |a, _| {
+        Value::lambda("c'", move |b, _| {
+            let a = a.clone();
+            Value::lambda("c''", move |c, _| {
+                Value::apply(Value::apply(a.clone(), c.clone()), b.clone())
+            })
+        })
+    })
+}
+
+fn builtin_b() -> Rc<Value> {
+    Value::lambda("b", move |a, _| {
+        Value::lambda("b'", move |b, _| {
+            let a = a.clone();
+            Value::lambda("b''", move |c, _| {
+                Value::apply(b.clone(), Value::apply(a.clone(), c.clone()))
+            })
+        })
+    })
+}
+
+use std::{env, fs, io};
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
+use std::io::BufRead;
+
 fn main() -> Result<(), ()> {
     let mut vars = HashMap::new();
+    let builtin_true_value = Value::make_true();
+    let builtin_false_value = Value::make_false();
     vars.insert(String::from("cons"), builtin_cons());
-    vars.insert(String::from("t"), builtin_true());
-    vars.insert(String::from("f"), builtin_false());
-
-    let a = Value::number(12);
-    let b = Value::number(30);
+    vars.insert(String::from("t"), builtin_true_value.clone());
+    vars.insert(String::from("f"), builtin_false_value.clone());
+    vars.insert(String::from("car"), builtin_car(builtin_true_value.clone()));
+    vars.insert(String::from("cdr"), builtin_cdr(builtin_false_value.clone()));
+    vars.insert(String::from("nil"), Value::nil());
+    vars.insert(String::from("isnil"), builtin_isnil(builtin_true_value.clone(), builtin_false_value.clone()));
+    vars.insert(String::from("i"), builtin_i());
+    vars.insert(String::from("inc"), builtin_inc());
+    vars.insert(String::from("dec"), builtin_dec());
+    vars.insert(String::from("add"), builtin_add());
+    vars.insert(String::from("mul"), builtin_mul());
+    vars.insert(String::from("div"), builtin_div());
+    vars.insert(String::from("eq"), builtin_eq());
+    vars.insert(String::from("lt"), builtin_lt());
+    vars.insert(String::from("neg"), builtin_neg());
+    vars.insert(String::from("s"), builtin_s());
+    vars.insert(String::from("c"), builtin_c());
+    vars.insert(String::from("b"), builtin_b());
+    vars.insert(String::from("pwr2"), builtin_pwr2());
 
     let mut state = State { vars };
 
-    let result_func = state.vars["cons"].clone();
-    println!(
-        "result: {:?}",
-        result_func
-            .call(&mut state, a.clone())?
-            .call(&mut state, b.clone())?
-    );
+    let file = match File::open("../data/galaxy.txt") {
+        Ok(f) => f,
+        Err(_) => panic!("failed to open file"),
+    };
 
-    let parsed = parse_line("ap cons ( 1 , 2 , ( 3 ) , 4 )", &state.vars)?;
-    println!("{:?}", parsed);
+    let file = BufReader::new(file);
+
+    for line in file.lines().map(|l| l.unwrap()) {
+        let parsed = parse_line(&line, &state.vars)?;
+        if let Some(var_name) = parsed.name {
+            state.vars.insert(var_name, parsed.ast.clone());
+        }
+    }
+
+    let galaxy = state.vars["galaxy"].clone();
+
+    // make a call to galaxy that gets the first image
+    let zero_zero = Value::cons(Value::number(0), Value::number(0));
+    let galaxy_appl = Value::apply(Value::apply(galaxy.clone(), Value::nil()), zero_zero);
+
+    println!("{:?}", Value::eval(&galaxy_appl, &mut state));
 
     Ok(())
 }
