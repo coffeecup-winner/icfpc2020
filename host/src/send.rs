@@ -14,7 +14,7 @@ fn string_from_bytes(bytes: &[u8]) -> String {
 
 
 #[tokio::main]
-pub async fn request(base: &String, token: Option<&String>, content: &String) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn request(base: &String, token: Option<String>, content: &String) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let mut endpoint = match token {
         None => base.clone(),
         Some(token) => format!("{}?apiKey={}", base, token),

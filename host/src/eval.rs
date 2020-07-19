@@ -185,8 +185,8 @@ impl State {
                         let signal = modem::mod_list(&arg);
                         let signal_str = signal.iter().map(|x| if *x { '1' } else { '0' }).collect::<String>();
                         let endpoint = String::from("https://icfpc2020-api.testkontur.ru/aliens/send");
-                        let token = String::from("xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-                        let response = match send::request(&endpoint, None, &signal_str) {
+                        let token = std::env::var("ICFPC_TEAM_TOKEN").ok();
+                        let response = match send::request(&endpoint, token, &signal_str) {
                             Ok(val) => val,
                             Err(err) => panic!("request failed: {:?}", err)
                         };
