@@ -2,14 +2,12 @@ use crate::eval::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Point {
-    pub x: u32,
-    pub y: u32,
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct Picture {
-    pub offset_x: i64,
-    pub offset_y: i64,
     pub width: u32,
     pub height: u32,
     pub points: Vec<Point>,
@@ -71,7 +69,8 @@ impl PictureBuilder {
         } else {
             let (mut min_x, mut min_y) = points[0];
             let (mut max_x, mut max_y) = points[0];
-            for &(x, y) in points.iter() {
+            let mut pic_points = vec![];
+            for (x, y) in points {
                 if min_x > x {
                     min_x = x;
                 }
@@ -84,19 +83,12 @@ impl PictureBuilder {
                 if max_y < y {
                     max_y = y;
                 }
-            }
-            let offset_x = -min_x;
-            let offset_y = -min_y;
-            let mut pic_points = vec![];
-            for (x, y) in points {
                 pic_points.push(Point {
-                    x: (x + offset_x) as u32,
-                    y: (y + offset_y) as u32,
+                    x: x as i32,
+                    y: y as i32,
                 });
             }
             Picture {
-                offset_x,
-                offset_y,
                 width: (max_x - min_x) as u32,
                 height: (max_y - min_y) as u32,
                 points: pic_points,
@@ -110,7 +102,10 @@ impl std::fmt::Display for Picture {
         // SLOW - TODO REWRITE
         for y in 0..self.height {
             for x in 0..self.width {
-                if self.points.contains(&Point { x, y }) {
+                if self.points.contains(&Point {
+                    x: x as i32,
+                    y: y as i32,
+                }) {
                     write!(f, "#")?;
                 } else {
                     write!(f, ".")?;

@@ -35,6 +35,16 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
 
     const VIEWPORT_WIDTH: u32 = 800;
     const VIEWPORT_HEIGHT: u32 = 600;
+    const VIEWPORT_CENTER_X: i32 = (VIEWPORT_WIDTH / 2) as i32;
+    const VIEWPORT_CENTER_Y: i32 = (VIEWPORT_HEIGHT / 2) as i32;
+    const MAX_SCALE: i32 = 10;
+    let COLORS: Vec<(u8, u8, u8)> = vec![
+        (39, 39, 39),
+        (116, 116, 116),
+        (255, 101, 47),
+        (255, 228, 0),
+        (20, 167, 108),
+    ];
 
     let app = App::default();
     let mut window = Window::new(
@@ -47,19 +57,61 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     window.set_type(WindowType::Double);
     window = window.center_screen();
     let pics_data = Arc::new(RefCell::new(Data::default()));
+    let scale = Arc::new(RefCell::new(1 as i32));
 
     let pics_capture = pics_data.clone();
+    let scale_capture = scale.clone();
     window.draw(Box::new(move || {
         let pics = &pics_capture.borrow().vec;
-        set_color_rgb(0, 0, 0);
+        let (r, g, b) = COLORS[0];
+        set_color_rgb(r, g, b);
         draw_rectf(0, 0, VIEWPORT_WIDTH as i32, VIEWPORT_HEIGHT as i32);
-        set_color_rgb(0, 0, 255);
-        for p in pics {
-            for point in p.points.iter() {
-                // img.set_pixel(point.x, point.y, bmp::Pixel::new(0, 0, 255));
-                draw_point(point.x as i32, point.y as i32);
+        let mut scale = 1;
+        if !pics.is_empty() {
+            let Picture {
+                mut width,
+                mut height,
+                ..
+            } = pics[0];
+            for p in pics.iter() {
+                if width < p.width {
+                    width = p.width;
+                }
+                if height < p.height {
+                    height = p.height;
+                }
+            }
+            let scale_x = (VIEWPORT_WIDTH / width) as i32;
+            let scale_y = (VIEWPORT_HEIGHT / height) as i32;
+            scale = if scale_x < scale_y { scale_x } else { scale_y };
+            if scale > MAX_SCALE {
+                scale = MAX_SCALE;
+            }
+            for (i, p) in pics.into_iter().enumerate() {
+                let (r, g, b) = if i >= COLORS.len() {
+                    println!("WARNING: not enough colors");
+                    (255, 0, 0)
+                } else {
+                    COLORS[i + 1]
+                };
+                set_color_rgb(r, g, b);
+                if scale == 1 {
+                    for point in p.points.iter() {
+                        draw_point(VIEWPORT_CENTER_X + point.x, VIEWPORT_CENTER_Y + point.y);
+                    }
+                } else {
+                    for point in p.points.iter() {
+                        draw_rectf(
+                            VIEWPORT_CENTER_X + point.x * scale,
+                            VIEWPORT_CENTER_Y + point.y * scale,
+                            scale,
+                            scale,
+                        );
+                    }
+                }
             }
         }
+        *scale_capture.borrow_mut() = scale;
     }));
 
     window.end();
@@ -77,13 +129,22 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
         match event() {
             fltk::enums::Event::Released => {
                 let (mut x, mut y) = get_mouse();
-                x -= window.x();
-                y -= window.y();
+                println!("{}, {}", x, y);
+                x = x - window.x() - VIEWPORT_CENTER_X;
+                y = y - window.y() - VIEWPORT_CENTER_Y;
+                println!("{}, {}", x, y);
                 if let Some((first_x, first_y)) = first_coords {
                     x = first_x;
                     y = first_y;
                     first_coords = None;
                 }
+                println!("{}, {}", x, y);
+                let scale = *scale.borrow();
+                if scale > 1 {
+                    x /= scale as i32;
+                    y /= scale as i32;
+                }
+                println!("{}, {}", x, y);
                 if last_x != x || last_y != y {
                     println!("Clicked on ({}, {})", x, y);
                     let (new_state, pics) = run_interaction(
@@ -112,7 +173,11 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                     let pics = &pics_data.borrow().vec;
                     for p in pics.iter() {
                         for point in p.points.iter() {
-                            img.set_pixel(point.x, point.y, bmp::Pixel::new(0, 0, 255));
+                            img.set_pixel(
+                                point.x as u32,
+                                point.y as u32,
+                                bmp::Pixel::new(0, 0, 255),
+                            );
                         }
                     }
 
