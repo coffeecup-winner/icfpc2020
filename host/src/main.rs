@@ -54,7 +54,7 @@ fn run() -> io::Result<()> {
     let path = if env::args().len() == 2 {
         env::args().nth(1).unwrap()
     } else {
-        "./data/i_stateless.txt".to_string()
+        "./data/i_galaxy.txt".to_string()
     };
     let data_folder = std::path::Path::new(&path).parent().unwrap();
     let file = fs::read_to_string(&path)?;
