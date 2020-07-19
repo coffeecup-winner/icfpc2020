@@ -49,6 +49,23 @@ impl Blender {
     }
 }
 
+fn draw_pixel(point: &Point, blender: &Blender, scale: i32, center_x: i32, center_y: i32) {
+    let (r, g, b) = blender.get(point);
+    set_color_rgb(r, g, b);
+    if scale == 1 {
+        draw_point(center_x + point.x, center_y + point.y);
+    } else {
+        let (r, g, b) = blender.get(point);
+        set_color_rgb(r, g, b);
+        draw_rectf(
+            center_x + point.x * scale,
+            center_y + point.y * scale,
+            scale,
+            scale,
+        );
+    }
+}
+
 pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     let mut state = State::new();
     let mut protocol = None;
@@ -137,23 +154,8 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                 }
             }
             for p in pics {
-                if scale == 1 {
-                    for point in p.points.iter() {
-                        let (r, g, b) = blender.get(point);
-                        set_color_rgb(r, g, b);
-                        draw_point(VIEWPORT_CENTER_X + point.x, VIEWPORT_CENTER_Y + point.y);
-                    }
-                } else {
-                    for point in p.points.iter() {
-                        let (r, g, b) = blender.get(point);
-                        set_color_rgb(r, g, b);
-                        draw_rectf(
-                            VIEWPORT_CENTER_X + point.x * scale,
-                            VIEWPORT_CENTER_Y + point.y * scale,
-                            scale,
-                            scale,
-                        );
-                    }
+                for point in p.points.iter() {
+                    draw_pixel(point, &blender, scale, VIEWPORT_CENTER_X, VIEWPORT_CENTER_Y);
                 }
             }
         }
@@ -175,22 +177,28 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
         match event() {
             fltk::enums::Event::Released => {
                 let (mut x, mut y) = get_mouse();
-                println!("{}, {}", x, y);
+                // Coords processing
                 x = x - window.x() - VIEWPORT_CENTER_X;
                 y = y - window.y() - VIEWPORT_CENTER_Y;
-                println!("{}, {}", x, y);
                 if let Some((first_x, first_y)) = first_coords {
                     x = first_x;
                     y = first_y;
                     first_coords = None;
                 }
-                println!("{}, {}", x, y);
                 let scale = *scale.borrow();
                 if scale > 1 {
-                    x /= scale as i32;
-                    y /= scale as i32;
+                    x = if x < 0 {
+                        (x - scale) / scale
+                    } else {
+                        x / scale
+                    };
+                    y = if y < 0 {
+                        (y - scale) / scale
+                    } else {
+                        y / scale
+                    };
                 }
-                println!("{}, {}", x, y);
+                // Click
                 if last_x != x || last_y != y {
                     println!("Clicked on ({}, {})", x, y);
                     let (new_state, pics) = run_interaction(
