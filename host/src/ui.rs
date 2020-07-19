@@ -1,4 +1,4 @@
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, path::Path, sync::Arc};
 
 use fltk::{app::*, draw::*, window::*};
 
@@ -11,7 +11,7 @@ struct Data {
     vec: Vec<Picture>,
 }
 
-pub fn ui_main(file: String) -> std::io::Result<()> {
+pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     let mut state = State::new();
     let mut protocol = None;
     // Skip the "INTERACTIVE" line
@@ -20,6 +20,11 @@ pub fn ui_main(file: String) -> std::io::Result<()> {
         } else if let Some(l) = line.strip_prefix("PROTOCOL ") {
             println!("Protocol: {}", l);
             protocol = Some(l.to_string());
+        } else if let Some(l) = line.strip_prefix("INCLUDE ") {
+            let f = std::fs::read_to_string(data_folder.join(l))?;
+            for l in f.lines() {
+                state.interpret(parse_line(l));
+            }
         } else {
             state.interpret(parse_line(line));
         }

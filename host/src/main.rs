@@ -48,17 +48,19 @@ fn run_test(file: String) {
 }
 
 fn main() -> io::Result<()> {
-    let file = fs::read_to_string(if env::args().len() == 2 {
+    let path = if env::args().len() == 2 {
         env::args().nth(1).unwrap()
     } else {
         "./data/i_stateless.txt".to_string()
-    })?;
+    };
+    let data_folder = std::path::Path::new(&path).parent().unwrap();
+    let file = fs::read_to_string(&path)?;
     if file.starts_with("TEST") {
         println!("Mode: test");
         run_test(file);
     } else if file.starts_with("INTERACTIVE") {
         println!("Mode: interactive");
-        ui_main(file)?;
+        ui_main(file, &data_folder)?;
     } else {
         println!("Mode: custom");
         let mut state = State::new();

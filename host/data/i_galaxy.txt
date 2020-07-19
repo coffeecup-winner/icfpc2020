@@ -1,0 +1,4 @@
+INTERACTIVE
+PROTOCOL galaxy
+
+INCLUDE galaxy.txt
