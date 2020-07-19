@@ -86,7 +86,7 @@ fn demodulate_value(negative: bool, iter: &mut dyn Iterator<Item = bool>) -> Res
     Ok(if negative { -(res as i64) } else { res as i64 })
 }
 
-pub fn demodulate(iter: &mut dyn Iterator<Item = bool>) -> Result<NestedList, ()> {
+fn demodulate(iter: &mut dyn Iterator<Item = bool>) -> Result<NestedList, ()> {
     use NestedList::*;
 
     let a = iter_next(iter)?;
@@ -156,5 +156,18 @@ mod tests {
             mod_list(&woosh),
             v("1101100001111101100010110110001100110110010000")
         );
+    }
+
+    #[test]
+    fn test_modem() {
+        let cons = |a, b| NestedList::Cons(Box::new(a), Box::new(b));
+        let num = |x| NestedList::Number(x);
+        let nil = || NestedList::Nil;
+
+        let var1 = cons(num(1), cons(num(2), cons(num(3), nil())));
+        assert_eq!(var1, dem_list(&mod_list(&var1)));
+
+        let var2 = cons(cons(num(1), num(2)), cons(nil(), nil()));
+        assert_eq!(var2, dem_list(&mod_list(&var2)));
     }
 }

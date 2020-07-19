@@ -159,4 +159,20 @@ impl NestedList {
             NestedList::Number(n) => number(n),
         }
     }
+
+    pub fn unwrap_cons(self) -> (NestedList, NestedList) {
+        if let NestedList::Cons(a, b) = self {
+            (*a, *b)
+        } else {
+            panic!("Not a cons");
+        }
+    }
+
+    pub fn unwrap_number(self) -> i64 {
+        if let NestedList::Number(n) = self {
+            n
+        } else {
+            panic!("Not a number")
+        }
+    }
 }
