@@ -77,9 +77,10 @@ fn demodulate_value(negative: bool, iter: &mut dyn Iterator<Item = bool>) -> Res
     };
 
     let mut res = 0u64;
-    for i in 0..(used_nibbles * 4) {
+    let bit_size = (used_nibbles * 4);
+    for i in 0..bit_size {
         if iter_next(iter)? {
-            res |= 1u64 << i;
+            res |= 1u64 << (bit_size - i - 1);
         }
     }
 
@@ -163,6 +164,14 @@ mod tests {
         let cons = |a, b| NestedList::Cons(Box::new(a), Box::new(b));
         let num = |x| NestedList::Number(x);
         let nil = || NestedList::Nil;
+
+        assert_eq!(dem_list(&v("010")), n(0));
+        assert_eq!(dem_list(&v("0111000010000")), n(16));
+        assert_eq!(dem_list(&v("00")), nil());
+        assert_eq!(dem_list(&v("1101000")), cons(Number(0), Nil));
+
+        let var0 = cons(Number(0), Nil);
+        assert_eq!(var0, dem_list(&mod_list(&var0)));
 
         let var1 = cons(num(1), cons(num(2), cons(num(3), nil())));
         assert_eq!(var1, dem_list(&mod_list(&var1)));
