@@ -10,8 +10,8 @@ fn string_from_bytes(bytes: &[u8]) -> String {
 pub async fn request(
     base: &String,
     token: Option<String>,
-    content: &String,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    content: Vec<u8>,
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     let mut endpoint = match token {
         None => base.clone(),
         Some(token) => format!("{}?apiKey={}", base, token),
@@ -38,7 +38,7 @@ pub async fn request(
         println!("{:?}", body_data);
 
         match res.status() {
-            StatusCode::OK => break Ok(string_from_bytes(&body_data[..])),
+            StatusCode::OK => break Ok(body_data.into_iter().collect()),
             StatusCode::FOUND => {
                 endpoint = string_from_bytes(res.headers()[LOCATION].as_bytes());
                 println!("updated endpoint to {:?}", endpoint);
