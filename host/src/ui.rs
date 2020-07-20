@@ -16,26 +16,32 @@ struct Data {
 struct Blender {
     alpha: f32,
     colors: HashMap<Point, (u8, u8, u8)>,
+    is_blending_enabled: bool,
 }
 
 impl Blender {
-    pub fn new(alpha: f32) -> Blender {
+    pub fn new(alpha: f32, is_blending_enabled: bool) -> Blender {
         Blender {
             alpha,
             colors: HashMap::new(),
+            is_blending_enabled,
         }
     }
 
     pub fn blend(&mut self, p: Point, r: u8, g: u8, b: u8) {
-        if let Some(&(br, bg, bb)) = self.colors.get(&p) {
-            self.colors.insert(
-                p,
-                (
-                    self.blend_component(r, br),
-                    self.blend_component(g, bg),
-                    self.blend_component(b, bb),
-                ),
-            );
+        if self.is_blending_enabled {
+            if let Some(&(br, bg, bb)) = self.colors.get(&p) {
+                self.colors.insert(
+                    p,
+                    (
+                        self.blend_component(r, br),
+                        self.blend_component(g, bg),
+                        self.blend_component(b, bb),
+                    ),
+                );
+            } else {
+                self.colors.insert(p, (r, g, b));
+            }
         } else {
             self.colors.insert(p, (r, g, b));
         }
@@ -115,15 +121,17 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
     let window = Arc::new(RefCell::new(window.center_screen()));
 
     let scale = Arc::new(RefCell::new(1 as i32));
+    let is_blending_enabled = Arc::new(RefCell::new(false));
 
     let pics_data = Arc::new(RefCell::new(Data::default()));
     let mut interaction_state = NestedList::Nil;
     let mut history: Vec<(NestedList, NestedList)> = vec![];
 
-    let pics_capture = pics_data.clone();
-    let scale_capture = scale.clone();
+    let pics_ = pics_data.clone();
+    let scale_ = scale.clone();
+    let is_blending_enabled_ = is_blending_enabled.clone();
     window.borrow_mut().draw(Box::new(move || {
-        let pics = &pics_capture.borrow().vec;
+        let pics = &pics_.borrow().vec;
         let (r, g, b) = COLORS[0];
         set_color_rgb(r, g, b);
         draw_rectf(0, 0, VIEWPORT_WIDTH as i32, VIEWPORT_HEIGHT as i32);
@@ -148,7 +156,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
             if scale > MAX_SCALE {
                 scale = MAX_SCALE;
             }
-            let mut blender = Blender::new(0.7);
+            let mut blender = Blender::new(0.7, *is_blending_enabled_.borrow());
             for (i, p) in pics.iter().rev().enumerate() {
                 let (r, g, b) = if i + 1 >= COLORS.len() {
                     println!("WARNING: not enough colors");
@@ -166,7 +174,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                 }
             }
         }
-        *scale_capture.borrow_mut() = scale;
+        *scale_.borrow_mut() = scale;
     }));
 
     if &protocol == "galaxy" {
@@ -250,6 +258,15 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                         true
                     }
                     k => {
+                        if k == fltk::enums::Key::from_i32(0xffbf) {
+                            // F2 - enable/disable blending
+                            if *is_blending_enabled.borrow() {
+                                *is_blending_enabled.borrow_mut() = false;
+                            } else {
+                                *is_blending_enabled.borrow_mut() = true;
+                            }
+                            window_.borrow_mut().redraw();
+                        }
                         if k == fltk::enums::Key::from_i32(0xffc2) {
                             // F5 - save
                             if let Some((st, pics)) = history.last() {
