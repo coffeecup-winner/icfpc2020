@@ -5,6 +5,7 @@ mod interact;
 mod modem;
 mod send;
 mod syntax;
+mod translator;
 mod types;
 mod ui;
 
@@ -51,6 +52,15 @@ fn run_test(file: String) {
 }
 
 fn run() -> io::Result<()> {
+    // Translator
+    if env::args().len() == 4 {
+        assert_eq!(&env::args().nth(1).unwrap(), "translate");
+        let in_file = env::args().nth(2).unwrap();
+        let out_file = env::args().nth(3).unwrap();
+        let result = translator::translate(std::fs::read_to_string(in_file)?);
+        return std::fs::write(out_file, result);
+    }
+    // GUI or test
     let path = if env::args().len() == 2 {
         env::args().nth(1).unwrap()
     } else {
