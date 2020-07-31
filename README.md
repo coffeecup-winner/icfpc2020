@@ -1,1 +1,3 @@
-If you want to add any dependencies, don't forget to run `cargo vendor` and commit your dependencies in the `./vendor` folder.
+This repo is a copy of my ICFP Programming Contest 2020 submission (as dareludum) with further modifications.
+
+The original submission is here: https://github.com/dareludum/icfpc2020
