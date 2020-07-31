@@ -28,7 +28,7 @@ fn interact(
             .map(|x| if x { b'1' } else { b'0' })
             .collect();
         let endpoint = String::from("https://icfpc2020-api.testkontur.ru/aliens/send");
-        let token = std::env::var("ICFPC_TEAM_TOKEN").expect("Please set the ICFPC_TEAM_TOKEN env var");
+        let token = "4f4e0ad4dc564c1285a284be8734c9af";
         let response = match request(&endpoint, &token, signal_data) {
             Ok(val) => val,
             Err(err) => panic!("request failed: {:?}", err),
