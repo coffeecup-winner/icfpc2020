@@ -1,1 +1,2 @@
 mod galaxy;
+mod tests;

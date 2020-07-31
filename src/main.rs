@@ -3,6 +3,7 @@ use std::{env, fs, io, thread};
 mod eval;
 mod interact;
 mod modem;
+mod runtime;
 mod send;
 mod syntax;
 mod translator;

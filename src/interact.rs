@@ -34,10 +34,7 @@ fn interact(
             Err(err) => panic!("request failed: {:?}", err),
         };
 
-        let signal: Vec<_> = response
-            .into_iter()
-            .map(|c| c == b'1')
-            .collect();
+        let signal: Vec<_> = response.into_iter().map(|c| c == b'1').collect();
 
         interact(state, protocol, b, dem_list(&signal))
     }

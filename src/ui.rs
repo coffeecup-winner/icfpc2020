@@ -252,7 +252,8 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                         history.pop();
                         if let Some((st, pics)) = history.last() {
                             interaction_state = st.clone();
-                            pics_data.borrow_mut().vec = PictureBuilder::from_nested_list(pics.clone());
+                            pics_data.borrow_mut().vec =
+                                PictureBuilder::from_nested_list(pics.clone());
                             window_.borrow_mut().redraw();
                         }
                         true
@@ -285,8 +286,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                             // F8 - load
                             println!("Loading state...");
                             let file = std::fs::read("./save.dat").unwrap();
-                            let serialized: Vec<_> =
-                                file.into_iter().map(|c| c == b'1').collect();
+                            let serialized: Vec<_> = file.into_iter().map(|c| c == b'1').collect();
                             let list = dem_list(&serialized);
                             let (st, pics) = list.unwrap_cons();
 
@@ -305,7 +305,7 @@ pub fn ui_main(file: String, data_folder: &Path) -> std::io::Result<()> {
                     }
                 }
             }
-            _ => false
+            _ => false,
         }
     }));
 

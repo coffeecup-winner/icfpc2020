@@ -93,6 +93,10 @@ impl State {
         State::default()
     }
 
+    pub fn get(&self, var: &Var) -> &Value {
+        self.vars.get(var).unwrap()
+    }
+
     pub fn eval_v(&self, var: &Var) -> Value {
         let v = self.vars.get(var).unwrap();
         self.eval(v.clone())
