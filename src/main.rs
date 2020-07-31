@@ -9,6 +9,9 @@ mod translator;
 mod types;
 mod ui;
 
+// Generated - galaxy.rs
+mod generated;
+
 use crate::eval::State;
 use crate::syntax::*;
 use crate::types::*;
