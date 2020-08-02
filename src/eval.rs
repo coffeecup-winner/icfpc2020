@@ -64,7 +64,7 @@ impl V {
 pub type Value = Rc<RefCell<V>>;
 
 // Built-in functions except `ap`
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BuiltIn {
     Inc,   // #5
     Dec,   // #6

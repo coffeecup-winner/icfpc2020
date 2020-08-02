@@ -13,9 +13,6 @@ mod tests {
 
     #[test]
     fn test_1029() {
-        assert_eq!(
-            vec![7, 123229502148636],
-            to_num_vec(__1029(Value::Number(0)))
-        );
+        assert_eq!(vec![7, 123229502148636], to_num_vec(__1029()));
     }
 }

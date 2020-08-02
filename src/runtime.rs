@@ -44,12 +44,84 @@ impl From<Func2> for Value {
     }
 }
 
+pub fn inc() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn dec() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn add() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn mul() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn div() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn eq() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn lt() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn neg() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn s() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn c() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn b() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn t() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn f() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn pwr2() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn i() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn cons() -> Value {
+    Value::Func2(Func2(Box::new(|a, b| _cons(a, b))))
+}
+
+pub fn head() -> Value {
+    Value::Number(0) // TODO
+}
+
+pub fn tail() -> Value {
+    Value::Number(0) // TODO
+}
+
 pub fn nil() -> Value {
     Value::List(vec![])
 }
 
-pub fn cons() -> Func2 {
-    Func2(Box::new(|a, b| _cons(a, b)))
+pub fn isnil() -> Value {
+    Value::Number(0) // TODO
 }
 
 fn _cons(left: Value, right: Value) -> Value {
